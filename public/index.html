@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCE v0.2.1-b | SECURE REPOSITORY</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+    <div id="recovery-shield" onclick="handleShieldClick()">
+        <i class="fas fa-shield-halved"></i>
+    </div>
+
+    <div id="recovery-panel">
+        <h4 style="margin:0 0 15px 0; font-size:12px; color:var(--gold);">RECOVERY REQUEST</h4>
+        <input type="text" id="req_file" placeholder="Filename.c">
+        <button onclick="submitRecovery()" class="btn-transmit" style="width:100%;">SUBMIT TICKET</button>
+    </div>
+
+    <div id="admin-terminal">
+        <div id="term-output">Awaiting Command...</div>
+        <input type="text" id="term-input" placeholder="/Recovery [user] [file.c]">
+    </div>
+
+    <div class="container">
+        <div id="auth-section">
+            <div class="login-box">
+                <h2 id="bridge-label">Connect to have access</h2>
+                <div class="tos-container">
+                    <input type="checkbox" id="tosAgree"> 
+                    <label for="tosAgree">Accept Protocol & Warranty</label>
+                </div>
+                
+                <div class="auth-buttons">
+                    <a href="/api/auth/github" id="ghBtn" class="btn-transmit disabled auth-btn">GitHub</a>
+                    <div class="guest-btn-wrapper">
+                        <a href="/api/auth/guest" class="btn-transmit disabled auth-btn" style="background:white;">Guest</a>
+                        <div class="guest-note">Note: Guest access is read-only. No Warranty protection.</div>
+                    </div>
+                </div>
+
+                <div class="benefits-list">
+                    <div class="benefit-card"><i class="fas fa-cloud"></i> <b>Cloud Sync:</b> Dual-bucket mirroring.</div>
+                    <div class="benefit-card"><i class="fas fa-microscope"></i> <b>Live Explorer:</b> Community repository.</div>
+                    <div class="benefit-card"><i class="fas fa-shield-virus"></i> <b>Secure Delete:</b> Admin-only vault.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="main-ui" style="display:none;">
+            <div id="profile-anchor"></div>
+
+            <div class="upload-box">
+                <label for="fileInput" class="custom-file-label">
+                    <span>UPLOAD PROJECT</span>
+                </label>
+                <input type="file" id="fileInput" accept=".c" style="display:none;">
+                <button id="uploadBtn" class="btn-transmit" style="width:100%; margin-top:15px;">TRANSMIT</button>
+            </div>
+
+            <h3 class="section-title">YOUR PROJECTS</h3>
+            <div id="my-file-list"></div>
+
+            <h3 class="section-title">COMMUNITY CLOUD</h3>
+            <div id="others-file-list"></div>
+        </div>
+    </div>
+
+    <script src="/client.js"></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+/** SCE v0.3.41 [BETA] - CORE SERVER ENGINE **/
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
@@ -13,50 +14,52 @@ const adminRoutes = require('./routes/admin');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- 1. GLOBAL STATE & CLEANUP (v0.3.1) ---
+// --- 1. GLOBAL STATE & MEMORY MANAGEMENT ---
+// Using global scope for Beta rapid-syncing between modular routes
 global.adminTickets = []; 
-global.recoveryData = {}; 
+global.recoveryData = {}; // Format: { username: { key: 'SCE-XXXX', filename: 'file.c', ready: bool, claimed: bool } }
 
 /**
- * AUTO-CLEANUP TASK: Runs every 24 hours
- * Prevents memory leaks by clearing unclaimed recovery keys older than 24h
+ * AUTO-CLEANUP PROTOCOL: v0.3.41
+ * Purges expired recovery keys every 24 hours to prevent memory bloat.
  */
 setInterval(() => {
     const now = Date.now();
-    const expiry = 24 * 60 * 60 * 1000;
+    const expiry = 24 * 60 * 60 * 1000; // 24 Hours
+    let purgedCount = 0;
+
     Object.keys(global.recoveryData).forEach(user => {
-        if (now - new Date(global.recoveryData[user].processedAt).getTime() > expiry) {
+        const timestamp = new Date(global.recoveryData[user].processedAt).getTime();
+        if (now - timestamp > expiry) {
             delete global.recoveryData[user];
+            purgedCount++;
         }
     });
-    console.log(`[SYSTEM] v0.3.1 Routine Cleanup Executed.`);
+    if (purgedCount > 0) console.log(`[BETA] Routine Cleanup: ${purgedCount} expired keys purged.`);
 }, 24 * 60 * 60 * 1000);
 
-// --- 2. PROXY & SECURITY ---
-app.set('trust proxy', 1);
-
-// --- 3. MIDDLEWARE ---
+// --- 2. SECURITY & PROXY ---
+app.set('trust proxy', 1); // Required for Render/Heroku deployments
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// --- 4. SESSION MANAGEMENT ---
+// --- 3. SESSION MANAGEMENT ---
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'sce_v3_secret_prime',
-    resave: false, // v0.3.1 Performance optimization
+    secret: process.env.SESSION_SECRET || 'sce_beta_prime_2026',
+    resave: false, 
     saveUninitialized: false,
     proxy: true,
     cookie: { 
         secure: process.env.NODE_ENV === 'production', 
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 
+        maxAge: 24 * 60 * 60 * 1000 // 1 Day
     } 
 }));
 
-// --- 5. AUTH INITIALIZATION ---
+// --- 4. AUTHENTICATION ENGINE ---
 app.use(passport.initialize());
 app.use(passport.session());
 
-// --- 6. GITHUB STRATEGY (v0.3.1 Production Callback) ---
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
@@ -67,7 +70,9 @@ passport.use(new GitHubStrategy({
     const user = {
         username: profile.username,
         avatar: profile._json.avatar_url,
-        isAdmin: profile.username === "WAN234-sys"
+        isAdmin: profile.username === (process.env.ADMIN_USERNAME || "WAN234-sys"),
+        isGuest: false,
+        authenticated: true
     };
     return done(null, user);
 }));
@@ -75,40 +80,41 @@ passport.use(new GitHubStrategy({
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// --- 7. RECOVERY & MINIBOX API ---
+// --- 5. MINIBOX & RECOVERY API ---
 
-// [USER] Send Recovery Mail
+// [USER] Submit Recovery Ticket (Public Cloud -> Admin Bridge)
 app.post('/api/admin/mail/send', (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated() || req.user.isGuest) return res.sendStatus(401);
     const { username, filename } = req.body;
     
     const ticket = {
         id: Date.now(),
         username: username || req.user.username,
         filename,
-        timestamp: new Date().toLocaleTimeString(),
+        timestamp: new Date().toISOString(),
         status: 'pending'
     };
     
     global.adminTickets.push(ticket);
-    console.log(`[MINIBOX] v0.3.1 Incoming Ticket: ${ticket.username}`);
+    console.log(`[TICKET] v0.3.41 Request Logged: ${ticket.username} for ${filename}`);
     res.json({ success: true });
 });
 
-// [ADMIN] Fetch Active Tickets
+// [ADMIN] View Ticket Queue (Secure Bridge)
 app.get('/api/admin/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.isAdmin) {
         res.json(global.adminTickets);
     } else {
-        res.status(403).send("Unauthorized Access Attempt");
+        res.status(403).send("Clearance Denied: High-Level Access Required.");
     }
 });
 
-// [ADMIN] Execute Restore Protocol
+// [ADMIN] Issue Claim Key (The Verification Protocol)
 app.post('/api/admin/restore', (req, res) => {
     if (!req.isAuthenticated() || !req.user.isAdmin) return res.sendStatus(403);
     
     const { username, filename } = req.body;
+    // Generate High-Entropy Verification Key
     const claimKey = `SCE-${Math.random().toString(36).toUpperCase().substring(2, 10)}`;
     
     global.recoveryData[username] = {
@@ -116,14 +122,16 @@ app.post('/api/admin/restore', (req, res) => {
         key: claimKey,
         ready: true,
         claimed: false,
-        processedAt: new Date().toISOString() // Standardized ISO format
+        processedAt: new Date().toISOString()
     };
 
+    // Auto-remove from active ticket queue
     global.adminTickets = global.adminTickets.filter(t => t.username !== username);
+    console.log(`[VAULT] Key Issued for ${username}: ${claimKey}`);
     res.json({ success: true, claimKey });
 });
 
-// [USER] Check Status (Polling)
+// [USER] Handshake: Check for pending Notifications & Keys
 app.get('/api/user/check-recovery', (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
@@ -135,24 +143,41 @@ app.get('/api/user/check-recovery', (req, res) => {
     }
 });
 
-// --- 8. ROUTES ---
+// [USER] Key Verification (The final claim handshake)
+app.post('/api/user/verify-key', (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { key } = req.body;
+    const user = req.user.username;
+
+    if (global.recoveryData[user] && global.recoveryData[user].key === key) {
+        global.recoveryData[user].claimed = true;
+        // In a production build, trigger the Supabase move from 'backup' to 'modules' here
+        console.log(`[SUCCESS] User ${user} verified asset ownership.`);
+        res.status(200).send("Verified");
+    } else {
+        res.status(403).send("Invalid Verification Key.");
+    }
+});
+
+// --- 6. ROUTING HIERARCHY ---
 app.use('/api/auth', authRoutes);
 app.use('/api/cloud', cloudRoutes);
 app.use('/api/admin', adminRoutes);
 
-// --- 9. SPA FALLBACK ---
+// SPA Fallback: Direct all non-API routes to index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- 10. LIFECYCLE START ---
+// --- 7. STARTUP ---
 app.listen(PORT, () => {
     console.log(`
     =================================================
-    CORE ENGINE : SCE v0.3.1 [STABLE]
-    PORT        : ${PORT}
-    ADMIN_UID   : WAN234-sys
-    STATUS      : Memory Cleanup Protocol Active
+    SCE v0.3.41 [BETA] CORE ONLINE
+    PORT      : ${PORT}
+    ENV       : ${process.env.NODE_ENV || 'development'}
+    ADMIN     : ${process.env.ADMIN_USERNAME || "WAN234-sys"}
+    PROTOCOL  : Dual-Sync Storage & Verification Active
     =================================================
     `);
 });

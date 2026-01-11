@@ -1,10 +1,10 @@
-/** SCE v0.3.1 - MINIBOX & RECOVERY ENGINE **/
+/** SCE v0.3.41 [BETA] - MINIBOX & VERIFICATION ENGINE **/
 let mbClicks = 0;
 let mbTimer;
 
 /**
- * Handle Triple-Click Trigger
- * Opens the Minibox UI to show tickets (Admin) or request form (User)
+ * 1. TRIPLE-CLICK TRIGGER
+ * Sequence: 3 clicks within 800ms to toggle the diagnostic bridge.
  */
 function handleMiniboxClick() {
     mbClicks++;
@@ -13,35 +13,41 @@ function handleMiniboxClick() {
 
     if (mbClicks === 3) {
         const ui = document.getElementById('minibox-ui');
+        if (!ui) return;
+
         const isHidden = ui.style.display === 'none' || ui.style.display === '';
-        
         ui.style.display = isHidden ? 'block' : 'none';
         
         if (isHidden) {
             renderMiniboxContent();
-            // Clear the notification dot upon viewing
+            // Clear notification dot when viewed, unless a key is still pending
             const dot = document.getElementById('notif-dot');
-            if (dot) dot.style.display = 'none';
+            if (dot && !currentUser.newRestoreAvailable) {
+                dot.style.display = 'none';
+            }
         }
         mbClicks = 0;
+        if (window.playClickSound) playClickSound();
     }
 }
 
 /**
- * Render Content based on User Role
- * Admin: Sees incoming recovery requests
- * User: Sees file recovery request form
- * Guest: View-only restriction
+ * 2. DYNAMIC CONTENT RENDERING
+ * Logic: Pivots UI based on Identity Handshake (Admin vs User vs Guest)
  */
 async function renderMiniboxContent() {
     const container = document.getElementById('minibox-content');
+    const vBox = document.getElementById('verify-box'); 
     if (!container) return;
 
+    // Default: Hide the verification input unless needed
+    if (vBox) vBox.style.display = 'none';
+
     if (currentUser.isAdmin) {
-        // ADMIN VIEW: Sync with global.adminTickets
+        /** CASE: ADMIN ENGINE **/
         container.innerHTML = `
-            <h4 style="color:var(--gold); font-size:11px; margin-bottom:10px;">INCOMING TICKETS</h4>
-            <div id="ticket-list" style="max-height:200px; overflow-y:auto;">Syncing...</div>
+            <h4 style="color:var(--gold); font-size:11px; margin-bottom:10px; letter-spacing:1px;">ADMIN TICKET QUEUE</h4>
+            <div id="ticket-list" class="mini-terminal-list">SYNCING...</div>
         `;
         
         try {
@@ -49,50 +55,57 @@ async function renderMiniboxContent() {
             const tickets = await res.json();
             const list = document.getElementById('ticket-list');
             
-            list.innerHTML = tickets.length ? '' : '<p style="font-size:10px; color:#555;">No pending requests in queue.</p>';
+            list.innerHTML = tickets.length ? '' : '<p style="font-size:10px; color:#555; text-align:center;">No pending requests.</p>';
             
             tickets.forEach(t => {
                 list.innerHTML += `
-                    <div class="ticket-item" style="border-bottom:1px solid #222; padding:8px 0;">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <strong style="color:var(--gold); font-size:10px;">${t.username}</strong>
-                            <span style="font-size:9px; color:#555;">${t.timestamp}</span>
+                    <div class="ticket-item">
+                        <div style="display:flex; justify-content:space-between;">
+                            <strong style="color:var(--gold);">${t.username}</strong>
+                            <span style="font-size:8px; opacity:0.5;">${new Date(t.timestamp).toLocaleTimeString()}</span>
                         </div>
-                        <div style="font-size:10px; color:#aaa; margin-top:2px;">FILE: ${t.filename}</div>
+                        <div style="font-size:10px; color:#aaa; margin-top:4px;">FILE: ${t.filename}</div>
                     </div>`;
             });
         } catch (e) {
-            document.getElementById('ticket-list').innerHTML = '<span style="color:red; font-size:10px;">Sync Error</span>';
+            list.innerHTML = '<span style="color:var(--del-red); font-size:10px;">Auth Handshake Failed</span>';
         }
 
     } else if (currentUser.isGuest) {
-        // GUEST VIEW: Restrictions applied
+        /** CASE: GUEST LOCK **/
         container.innerHTML = `
-            <h4 style="font-size:11px; color:var(--text-muted);">MINIBOX</h4>
-            <p style="font-size:10px; color:#555; margin-top:10px;">Recovery tools disabled for Guest accounts. Connect with GitHub to enable Warranty.</p>
+            <h4 style="font-size:11px; color:var(--text-muted); text-transform:uppercase;">Protocol Restricted</h4>
+            <p style="font-size:10px; color:#666; margin-top:10px; line-height:1.4;">
+                Guest sessions are volatile. Recovery tickets and verification keys are locked for non-TAW explorers.
+            </p>
         `;
     } else {
-        // USER VIEW: Recovery Request Form
+        /** CASE: STANDARD USER **/
+        
+        // Show Verification Box if Admin has already issued a key
+        if (currentUser.newRestoreAvailable && vBox) {
+            vBox.style.display = 'block';
+        }
+
         container.innerHTML = `
-            <h4 style="font-size:11px;">RECOVERY TICKET</h4>
-            <p style="font-size:9px; color:var(--text-muted); margin:5px 0;">Request an asset restore from Warranty Vault.</p>
-            <input type="text" id="req_file" placeholder="filename.c" 
-                style="width:100%; background:#000; border:1px solid #333; color:white; margin:10px 0; padding:8px; font-size:11px; border-radius:4px;">
-            <button onclick="submitRecovery()" class="btn-transmit" style="width:100%; font-size:10px; padding:8px;">SEND TO ADMIN</button>
+            <h4 style="font-size:11px; letter-spacing:1px;">RECOVERY TICKET</h4>
+            <p style="font-size:9px; color:var(--text-muted); margin:5px 0;">Request asset extraction from Warranty Vault.</p>
+            <input type="text" id="req_file" placeholder="filename.c" class="mini-input">
+            <button onclick="submitRecovery()" class="btn-transmit" style="width:100%; font-size:10px; margin-top:5px;">SUBMIT TO WAN234-SYS</button>
         `;
     }
 }
 
 /**
- * Submit Recovery Ticket to Admin
- * Syncs with app.post('/api/admin/mail/send')
+ * 3. TICKET TRANSMISSION
  */
 async function submitRecovery() {
     const filenameInput = document.getElementById('req_file');
     const filename = filenameInput.value.trim();
 
-    if (!filename) return alert("Please specify the missing file name.");
-    if (!filename.endsWith('.c')) return alert("Only .c source files can be recovered.");
+    if (!filename || !filename.endsWith('.c')) {
+        return alert("Validation Error: Please specify a valid .c source file.");
+    }
 
     try {
         const res = await fetch('/api/admin/mail/send', {
@@ -105,51 +118,42 @@ async function submitRecovery() {
         });
 
         if (res.ok) {
-            alert("Transmission Successful. Admin has been notified.");
+            alert("Transmission Successful. Ticket added to the Admin Service Queue.");
             document.getElementById('minibox-ui').style.display = 'none';
             filenameInput.value = '';
+            if (window.playSuccessSound) playSuccessSound();
         } else {
-            alert("Transmission Failed. Server busy.");
+            alert("Transmission Error: Administrative bridge is busy.");
         }
     } catch (e) {
-        console.error("MINIBOX ERROR:", e);
-        alert("Protocol Error: Unable to reach Admin.");
+        alert("Protocol Error: Check identity link status.");
     }
 }
 
 /**
- * Background Key Listener
- * Polling for claim keys issued by Admin via /restore
+ * 4. KEY VERIFICATION HANDLER
+ * Final step of the v0.3.41 Recovery Protocol.
  */
-function startRecoveryPolling() {
-    // Prevent duplicate intervals
-    if (window.recoveryCheckInterval) clearInterval(window.recoveryCheckInterval);
+async function verifyOwnership() {
+    const input = document.getElementById('verify_key_input');
+    const key = input.value.trim();
 
-    window.recoveryCheckInterval = setInterval(async () => {
-        try {
-            const res = await fetch('/api/user/check-recovery');
-            if (res.status === 401) return clearInterval(window.recoveryCheckInterval);
-            
-            const data = await res.json();
-            
-            if (data.ready) {
-                // 1. Show Red Dot Notification
-                const dot = document.getElementById('notif-dot');
-                if (dot) dot.style.display = 'block';
-                
-                // 2. Populate and show Claim Modal
-                const keyDisplay = document.getElementById('claim-key-display');
-                const popup = document.getElementById('claim-popup');
-                
-                if (keyDisplay && popup && popup.style.display !== 'flex') {
-                    keyDisplay.innerText = data.key;
-                    popup.style.display = 'flex';
-                    // Stop polling once the key is delivered to the UI
-                    clearInterval(window.recoveryCheckInterval);
-                }
-            }
-        } catch (e) {
-            console.warn("RECOVERY POLLING: Connection intermittent.");
+    if (!key) return alert("System Error: Key field cannot be null.");
+
+    try {
+        const res = await fetch('/api/user/verify-key', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ key: key })
+        });
+
+        if (res.ok) {
+            alert("VERIFICATION SUCCESS: Asset relocated to Primary Cloud.");
+            location.reload(); 
+        } else {
+            alert("VERIFICATION FAILED: Key mismatch or expired token.");
         }
-    }, 15000); // Poll every 15 seconds to maintain performance
+    } catch (e) {
+        alert("Fatal Error: Sync failure during key injection.");
+    }
 }

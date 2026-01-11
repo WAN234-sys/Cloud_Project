@@ -16,5 +16,17 @@
     "node-notifier": "^10.0.1",
     "passport": "^0.7.0",
     "passport-github2": "^0.1.12"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WAN234-sys/Cloud_Project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/WAN234-sys/Cloud_Project/issues"
+  },
+  "homepage": "https://github.com/WAN234-sys/Cloud_Project#readme"
 }

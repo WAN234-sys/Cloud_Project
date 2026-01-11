@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCE v0.3.1 | SECURE REPOSITORY</title>
+    <title>SCE v0.3.41 BETA | SECURE REPOSITORY</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
     <link rel="stylesheet" href="/style.css">
 </head>
-<body>
+<body ondragover="event.preventDefault()">
 
     <div id="minibox-trigger" onclick="handleMiniboxClick()" style="display: none;">
         <i class="fas fa-microchip"></i>
@@ -18,61 +18,75 @@
     </div>
 
     <div id="minibox-ui" style="display: none;">
-        <div id="minibox-content"></div>
-    </div>
-
-    <div id="claim-popup" class="modal-overlay" style="display: none;">
-        <div class="modal-box">
-            <i class="fas fa-key gold-icon"></i>
-            <h3>RECOVERY COMPLETE</h3>
-            <p>Your asset has been restored to the primary cloud.</p>
-            <div class="key-container">
-                <span id="claim-key-display">XXXX-XXXX</span>
-            </div>
-            <button onclick="closeClaimPopup()" class="btn-transmit">CONFIRM RECEIPT</button>
+        <div id="verify-box" style="display:none; border-bottom:1px solid var(--gh-border); padding-bottom:15px; margin-bottom:15px;">
+            <h4 style="font-size:11px; color:var(--gold); letter-spacing:1px; margin-top:0;">KEY VERIFICATION</h4>
+            <p style="font-size:9px; color:var(--text-muted); margin-bottom:8px;">Input high-entropy claim key to verify asset.</p>
+            <input type="text" id="verify_key_input" placeholder="PASTE KEY HERE" class="mini-input">
+            <button onclick="verifyOwnership()" class="btn-transmit" style="width:100%; font-size:10px; margin-top:8px; padding:10px;">CLAIM ASSET</button>
         </div>
+        <div id="minibox-content">
+            </div>
     </div>
 
-    <div id="admin-terminal" style="display: none;">
-        <div id="term-output">SCE ARCHIVE TOOLS [v0.3.1]...</div>
-        <div class="term-input-line">
-            <span class="term-prompt">#</span>
-            <input type="text" id="term-input" placeholder="Usage: /recover [user]_[file].c">
+    <div id="claim-popup" class="modal-overlay" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:2000; align-items:center; justify-content:center;">
+        <div class="modal-box" style="background:var(--card-bg); border:1px solid var(--gold); padding:40px; border-radius:20px; text-align:center; max-width:400px;">
+            <i class="fas fa-key" style="color:var(--gold); font-size:40px; margin-bottom:20px;"></i>
+            <h3 style="margin:0 0 10px 0;">RECOVERY GRANTED</h3>
+            <p style="font-size:12px; color:var(--text-muted);">The Administrator has reconstituted your asset.</p>
+            
+            <div class="key-container" onclick="copyKeyToClipboard()" style="background:var(--terminal-bg); padding:15px; border-radius:10px; border:1px dashed var(--gold); cursor:pointer; margin:20px 0;">
+                <span id="claim-key-display" style="font-family:'Fira Code'; font-size:18px; color:var(--gold); letter-spacing:2px;">XXXX-XXXX</span>
+                <small style="display:block; font-size:9px; color:var(--text-muted); margin-top:8px;">(CLICK TO COPY KEY)</small>
+            </div>
+            
+            <button onclick="closeClaimPopup()" class="btn-transmit" style="width:100%;">ACKNOWLEDGE RECEIPT</button>
         </div>
     </div>
 
     <div class="container">
+        
         <div id="auth-section">
-            <div class="login-box">
-                <h2 id="bridge-label">Login to Use</h2>
+            <div class="login-box" style="text-align: center;">
+                <h2 id="bridge-label" style="letter-spacing: 3px; font-weight: 300;">IDENTITY GATEWAY</h2>
                 
-                <div class="auth-buttons">
-                    <a href="/api/auth/github" id="ghBtn" class="btn-auth gh-btn disabled">
-                        <i class="fab fa-github"></i> GITHUB LOGIN
-                    </a>
-                    
-                    <div class="guest-btn-wrapper">
-                        <a href="/api/auth/guest" id="guestBtn" class="btn-auth guest-btn disabled">
-                            <i class="fas fa-user-secret"></i> GUEST EXPLORER
-                        </a>
-                        <div class="guest-hover-note">View-only mode enabled for Guests.</div>
-                    </div>
+                <div class="app-grid">
+                    <div class="app-box"><i class="fas fa-cube"></i><span>Code::Blocks</span></div>
+                    <div class="app-box"><i class="fab fa-microsoft"></i><span>VS Code</span></div>
+                    <div class="app-box"><i class="fas fa-terminal"></i><span>Dev-C++</span></div>
+                    <div class="app-box"><i class="fab fa-apple"></i><span>Xcode</span></div>
                 </div>
 
-                <div class="tos-container">
+                <div class="auth-buttons" style="margin-top: 30px;">
+                    <a href="/api/auth/github" id="ghBtn" class="btn-auth gh-btn disabled">
+                        <i class="fab fa-github"></i> GITHUB SECURE LOGIN
+                    </a>
+                    <a href="/api/auth/guest" id="guestBtn" class="btn-auth guest-btn">
+                        <i class="fas fa-user-secret"></i> GUEST EXPLORER
+                    </a>
+                </div>
+
+                <div class="tos-container" style="margin-top:20px; font-size:11px;">
                     <input type="checkbox" id="tosAgree"> 
                     <label for="tosAgree">
-                        I accept the <span class="legal-link tap-highlight" onclick="alert('TERMS: User assumes all responsibility for data management.')">TERMS OF SERVICE</span> 
-                        & <span class="legal-link tap-highlight" onclick="alert('WARRANTY: No guarantee of data persistence.')">WARRANTY</span>
+                        I accept the <span class="legal-link" style="color:var(--electric-green); cursor:pointer; text-decoration:underline;" onclick="document.getElementById('legal-vault').scrollIntoView({behavior:'smooth'})">TERMS & WARRANTY (TAW)</span>
                     </label>
                 </div>
 
-                <div class="benefit-box">
-                    <p><i class="fas fa-shield-halved"></i> End-to-end encrypted backup of all .c source files.</p>
-                    <div class="app-support-list">
-                        <span>Compatible with:</span>
-                        <code>VS Code</code> <code>CLion</code> <code>Dev-C++</code> <code>GCC</code> <code>Xcode</code>
-                    </div>
+                <div id="legal-vault" class="legal-scroll-box" style="margin-top:40px;">
+                    <pre>
+[SYSTEM LEGAL PROTOCOL v0.3.41]
+Location: Selangor, Malaysia
+Developer: WAN234-sys
+
+1. ASSET WARRANTY (SW)
+1.1 All .c files are backed up to an isolated vault.
+1.2 Recovery requires Admin-level key generation.
+1.5 Data is provided "AS IS" under Apache 2.0.
+
+2. GUEST ACCESS
+2.1 Guests are volatile sessions.
+2.2 No data persistence or recovery is offered.
+                    </pre>
                 </div>
             </div>
         </div>
@@ -80,35 +94,36 @@
         <div id="main-ui" style="display:none;">
             <div id="profile-anchor"></div>
 
-            <div id="app-title">
-                <span class="glow-word">SCE</span>
+            <div id="app-title" style="cursor:pointer; user-select:none;">
+                <span class="glow-word" style="color:var(--electric-green);">SCE</span>
                 <span class="glow-word">EXPLORER</span>
             </div>
 
-            <div class="upload-box">
-                <label for="fileInput" class="custom-file-box">
-                    <i class="fas fa-file-code"></i>
-                    <span id="file-label-text">SELECT C SOURCE</span>
-                    <small>Dashed area for upload selection</small>
+            <div class="upload-box" id="drop-zone">
+                <label for="fileInput" class="custom-file-box" style="cursor:pointer;">
+                    <i class="fas fa-file-import" style="font-size:30px; margin-bottom:10px;"></i><br>
+                    <span id="file-label-text" style="font-weight:bold;">SELECT C SOURCE</span><br>
+                    <small style="color:var(--text-muted);">OR DRAG .C FILE HERE</small>
                 </label>
-                
                 <input type="file" id="fileInput" accept=".c" style="display:none;">
-                
-                <button id="uploadBtn" class="btn-transmit">
-                    INITIALIZE TRANSMISSION
-                </button>
+                <button id="uploadBtn" class="btn-transmit" style="margin-top:20px; width:100%;">INITIALIZE TRANSMISSION</button>
             </div>
 
-            <h3 class="section-title">Your Shared Code</h3>
+            <h3 class="section-title">YOUR SECURED ASSETS</h3>
             <div id="my-file-list" class="file-container"></div>
 
-            <h3 class="section-title">Community Shared Code</h3>
+            <h3 class="section-title section-title-community">COMMUNITY ARCHIVE</h3>
             <div id="others-file-list" class="file-container"></div>
+            
+            <button onclick="toggleTheme()" style="position:fixed; bottom:25px; right:25px; background:none; border:none; font-size:20px; cursor:pointer;">🌓</button>
         </div>
     </div>
 
     <script src="/core.js"></script>
+    <script src="/guest.js"></script>
+    <script src="/user.js"></script>
     <script src="/minibox.js"></script>
+    <script src="/verifybox.js"></script>
     <script src="/terminal.js"></script>
     <script src="/client.js"></script>
 </body>

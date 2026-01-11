@@ -1,111 +1,106 @@
+/** SCE v0.3.41 [BETA] - ADMIN ENGINE & BUCKET BRIDGE **/
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase Client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const ADMIN_USER = "WAN234-sys";
+const ADMIN_USER = process.env.ADMIN_USERNAME || "WAN234-sys";
 
 /**
- * --- ADMIN RESTORE COMMAND (v0.3.1) ---
- * Logic: Downloads from 'backup' (Warranty Vault) -> Restores to 'modules' (Primary)
- * Triggered by: terminal.js -> /recover [username]_[filename].c
+ * --- ADMIN RESTORE COMMAND (v0.3.41 BETA) ---
+ * Sequence: Download from 'backup' -> Upload to 'modules' -> Issue Key
  */
 router.post('/restore', async (req, res) => {
-    // 1. STRICTOR AUTHORIZATION
+    // 1. SECURITY HANDSHAKE
     if (!req.isAuthenticated() || req.user.username !== ADMIN_USER) {
-        console.warn(`[SECURITY] Unauthorized restore attempt by: ${req.user?.username || 'Guest'}`);
-        return res.status(403).send("ACCESS DENIED: Administrative Clearance Required.");
+        console.warn(`[SECURITY] Unauthorized restore attempt by: ${req.user?.username}`);
+        return res.status(403).json({ error: "Access Denied: Admin Clearance Required." });
     }
 
     const { username, filename } = req.body;
     
-    // Validate Input
     if (!username || !filename) {
-        return res.status(400).send("ERROR: Missing parameters (User/File). Check syntax.");
+        return res.status(400).json({ error: "Missing parameters: username/filename." });
     }
 
-    // Path definitions for Supabase structure
+    // Path definitions for Bucket Bridge
     const sourcePath = `archives/warranty_${username}_${filename}`;
-    const destinationPath = `uploads/RESTORED_${Date.now()}_${username}_${filename}`;
+    const destPath = `restored/${username}/${Date.now()}_${filename}`;
 
     try {
-        console.log(`[v0.3.1 RECOVERY] Initiating restore for ${username} -> ${filename}`);
+        console.log(`[BRIDGE] Initiating Bucket Bridge for ${username}`);
 
-        // 2. DATA RETRIEVAL (From Backup Bucket)
+        // 2. EXTRACTION (Isolated Backup Bucket)
         const { data: blob, error: dlErr } = await supabase.storage
             .from('backup')
             .download(sourcePath);
 
         if (dlErr || !blob) {
-            console.error(`[RECOVERY ERROR] File not found: ${sourcePath}`);
-            throw new Error(`Asset [${filename}] not found in Warranty Vault.`);
+            throw new Error(`Asset [${filename}] not found in Secure Vault.`);
         }
 
-        // 3. ASSET RESTORATION (To Primary Bucket)
+        // 3. RECONSTITUTION (Production Modules Bucket)
         const { error: ulErr } = await supabase.storage
             .from('modules')
-            .upload(destinationPath, blob, { 
+            .upload(destPath, blob, { 
                 contentType: 'text/plain',
                 upsert: true 
             });
 
         if (ulErr) throw ulErr;
 
-        // 4. GENERATE v0.3.1 CLAIM KEY
-        const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
-        const claimKey = `${part1}-${part2}`;
+        // 4. v0.3.41 KEY GENERATION (High Entropy)
+        // Generates a key like: "A1B2-C3D4"
+        const key = `${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-        // Update global state for User Polling (v0.3.1 Memory Sync)
+        // 5. GLOBAL STATE SYNC (For User Minibox Polling)
         global.recoveryData[username] = {
             filename: filename,
-            key: claimKey,
+            key: key,
             ready: true,
             claimed: false,
-            processedAt: new Date().toISOString() // Required for server.js cleanup task
+            processedAt: new Date().toISOString(),
+            vPath: destPath // Store path for final verification move
         };
 
-        // Auto-remove the handled ticket from the Admin Queue
+        // 6. QUEUE PURGE
         global.adminTickets = global.adminTickets.filter(t => t.username !== username);
 
-        console.log(`[PROTOCOL SUCCESS] Recovery Key ${claimKey} assigned to ${username}.`);
+        console.log(`[BRIDGE SUCCESS] Restore Key issued to ${username}: ${key}`);
 
-        // Return JSON to terminal.js
         res.status(200).json({
             success: true,
-            message: `Restoration Complete.`,
-            claimKey: claimKey
+            message: `Asset Bridge Complete.`,
+            claimKey: key
         });
 
     } catch (e) {
-        console.error(`[ADMIN ERROR]`, e.message);
+        console.error(`[BRIDGE ERROR]`, e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
 /**
- * --- TICKET FETCH (v0.3.1) ---
- * Provides the current queue for the Admin Minibox view
+ * --- ADMIN TICKET VIEW ---
  */
 router.get('/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.username === ADMIN_USER) {
         res.json(global.adminTickets);
     } else {
-        res.status(403).send("Forbidden");
+        res.status(403).send("Clearance Denied.");
     }
 });
 
 /**
- * --- INCOMING MAIL HANDLER ---
- * Receives tickets from the User Minibox
+ * --- TICKET INTAKE HANDLER ---
  */
 router.post('/mail/send', (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    // Block Guests from requesting recovery
+    // Explicit block for Guest users
     if (req.user.isGuest) {
-        return res.status(403).send("Guests cannot access Warranty services.");
+        return res.status(403).send("Guest accounts restricted from Warranty use.");
     }
 
     const { username, filename } = req.body;
@@ -115,12 +110,12 @@ router.post('/mail/send', (req, res) => {
         username: username || req.user.username,
         filename: filename,
         timestamp: new Date().toLocaleTimeString(),
-        status: "pending"
+        status: "pending_admin_action"
     };
 
     global.adminTickets.push(ticket);
-    console.log(`[TICKET LOGGED] User ${ticket.username} requested ${filename}`);
-    res.status(200).json({ success: true, message: "Ticket added to queue." });
+    console.log(`[TICKET LOG] New request from ${ticket.username}`);
+    res.status(200).json({ success: true });
 });
 
 module.exports = router;

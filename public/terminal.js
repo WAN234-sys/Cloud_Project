@@ -1,16 +1,21 @@
-/** SCE v0.3.1 - TERMINAL & CLOUD ENGINE **/
+/** SCE v0.3.41 [BETA] - TERMINAL & CLOUD ENGINE **/
 
 // --- 1. ADMIN OVERRIDE LISTENER ---
+// Sequence: Shift + Enter toggles the Command Line Interface (CLI)
 window.addEventListener('keydown', (e) => {
-    // Open/Close Terminal: Shift + Enter (Only for Admin: WAN234-sys)
-    if (e.shiftKey && e.key === 'Enter' && currentUser?.isAdmin) {
+    if (e.shiftKey && e.key === 'Enter' && window.currentUser?.isAdmin) {
         e.preventDefault();
         const term = document.getElementById('admin-terminal');
+        if (!term) return;
+
         const isHidden = term.style.display === 'none' || term.style.display === '';
         term.style.display = isHidden ? 'flex' : 'none';
+        
         if (isHidden) {
-            document.getElementById('term-input').focus();
-            logToTerminal("System Ready. Waiting for Recovery Command...", "var(--text-muted)");
+            const input = document.getElementById('term-input');
+            if (input) input.focus();
+            logToTerminal("SCE COMMAND INTERFACE v0.3.41 [BETA]...", "var(--text-muted)");
+            logToTerminal("System Ready. Use /recover [user]_[file].c to issue claim keys.", "var(--text-muted)");
         }
     }
 });
@@ -21,18 +26,18 @@ document.getElementById('term-input')?.addEventListener('keypress', async (e) =>
         const input = e.target.value.trim();
         const output = document.getElementById('term-output');
         
-        // Command Requirement: /recover [username]_[filename].c
+        // Command Protocol: /recover [username]_[filename].c
         if (input.startsWith('/recover ')) {
             const rawParam = input.replace('/recover ', '').trim();
             const separator = rawParam.indexOf('_');
             
             if (separator === -1 || !rawParam.endsWith('.c')) {
-                logToTerminal(`ERROR: Invalid format. Use /recover [user]_[file].c`, "var(--danger-red)");
+                logToTerminal(`ERROR: Syntax invalid. Protocol: /recover [user]_[file].c`, "var(--danger-red)");
             } else {
                 const user = rawParam.substring(0, separator);
                 const file = rawParam.substring(separator + 1);
 
-                logToTerminal(`> INITIALIZING PROTOCOL: Target [${user}] Asset [${file}]...`, "var(--gold)");
+                logToTerminal(`> INITIATING VAULT EXTRACTION: [${user}] -> [${file}]`, "var(--gold)");
                 
                 try {
                     const res = await fetch('/api/admin/restore', {
@@ -43,87 +48,103 @@ document.getElementById('term-input')?.addEventListener('keypress', async (e) =>
                     const data = await res.json();
                     
                     if (data.success) {
-                        logToTerminal(`> SUCCESS: Asset moved to Primary Bucket.`, "var(--electric-green)");
-                        logToTerminal(`> CLAIM KEY ISSUED: [${data.claimKey}]`, "var(--gold)");
-                        fetchFiles(); // Refresh Global List
+                        logToTerminal(`> SUCCESS: Asset relocated to Primary Cloud.`, "var(--electric-green)");
+                        logToTerminal(`> CLAIM KEY GENERATED: [${data.claimKey}]`, "var(--gold)");
+                        // Update UI globally
+                        if (window.fetchFiles) fetchFiles(); 
                     } else {
-                        logToTerminal(`> FAILED: Admin authorization rejected or file not found.`, "var(--danger-red)");
+                        logToTerminal(`> FAILED: Recovery rejected by server.`, "var(--danger-red)");
                     }
                 } catch (err) {
-                    logToTerminal(`> CRITICAL ERROR: Handshake Timeout.`, "var(--danger-red)");
+                    logToTerminal(`> CRITICAL: Handshake Timeout. Check connection.`, "var(--danger-red)");
                 }
             }
         } else if (input === 'clear') {
-            output.innerHTML = 'SCE ARCHIVE TOOLS [v0.3.1]...';
+            if (output) output.innerHTML = 'SCE ARCHIVE TOOLS [v0.3.41]...';
+        } else if (input === 'help') {
+            logToTerminal("COMMANDS: /recover, /clear, /exit", "var(--gold)");
         } else {
-            logToTerminal(`> Unknown Command: ${input}`, "#555");
+            logToTerminal(`> ERR: Unknown Command [${input}]`, "#555");
         }
 
         e.target.value = '';
-        output.scrollTop = output.scrollHeight;
+        if (output) output.scrollTop = output.scrollHeight;
     }
 });
 
 function logToTerminal(text, color) {
     const output = document.getElementById('term-output');
-    output.innerHTML += `<div style="color:${color}; margin-bottom:4px;">${text}</div>`;
+    if (output) {
+        output.innerHTML += `<div style="color:${color}; margin-bottom:4px; font-family:'Fira Code'; font-size:11px;">${text}</div>`;
+    }
 }
 
-// --- 3. CLOUD FILE EXPLORER (v0.3.1) ---
+// --- 3. CLOUD FILE EXPLORER (v0.3.41) ---
+// Features: Redaction for Guests, Recovery Glow, and MB size conversion.
 async function fetchFiles() {
-    console.log("FETCH: Syncing Shared Code Repositories...");
+    console.log("CLOUD: Syncing Repositories...");
     try {
         const res = await fetch('/api/cloud/files');
         const files = await res.json();
         
-        const my = document.getElementById('my-file-list');
-        const others = document.getElementById('others-file-list');
+        const myContainer = document.getElementById('my-file-list');
+        const othersContainer = document.getElementById('others-file-list');
         
-        if (!my || !others) return;
-        my.innerHTML = ''; 
-        others.innerHTML = '';
+        if (!myContainer || !othersContainer) return;
+        myContainer.innerHTML = ''; 
+        othersContainer.innerHTML = '';
 
         files.forEach(f => {
-            // Requirement: MB display calculation
+            // Size Calculation: Bytes -> MB
             const sizeMB = f.sizeBytes ? (f.sizeBytes / (1024 * 1024)).toFixed(2) : "0.00";
             
+            // Guest Logic via guest.js helper
+            const secureInfo = (typeof getSecureDisplayInfo === 'function') 
+                ? getSecureDisplayInfo(f) 
+                : { name: f.displayName, owner: f.owner, isLocked: false, style: "" };
+
             const row = document.createElement('div');
-            row.className = `file-row ${f.isRecovered ? 'recovered-glow' : ''}`;
+            // Apply Golden Glow if file was recently restored via claim key
+            row.className = `file-row ${f.isRecovered ? 'recovered' : ''}`;
+            row.style = secureInfo.style;
             
-            // Build Row HTML based on requirements:
-            // 1. Remove VIEW button function
-            // 2. Add MB size
-            // 3. Block guest permissions
             row.innerHTML = `
                 <div class="file-info">
-                    <div style="font-family:'Fira Code'; font-size:14px; color:white;">
-                        ${f.displayName} ${f.isRecovered ? '⭐' : ''}
+                    <div style="font-family:'Fira Code'; font-size:14px; color:var(--text-main); font-weight:600;">
+                        ${secureInfo.name} ${f.isRecovered ? '<span title="Recovered Asset">⭐</span>' : ''}
                     </div>
                     <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
-                        Owner: ${f.owner} | SECURED (${sizeMB} MB)
+                        Owner: ${secureInfo.owner} | ${sizeMB} MB | SECURED
                     </div>
                 </div>
                 <div class="file-actions" style="display:flex; gap:10px; align-items:center;">
-                    ${currentUser.isGuest ? 
-                        '<span style="font-size:9px; color:#444; border:1px solid #222; padding:2px 5px;">LOCKED</span>' : 
-                        `<a href="${f.url}" download style="color:var(--electric-green); font-size:11px; text-decoration:none; font-weight:bold;">GET</a>`
+                    ${window.currentUser.isGuest ? 
+                        '<span class="badge-locked">RESTRICTED</span>' : 
+                        `<a href="${f.url}" download class="btn-get" style="color:var(--electric-green); font-size:11px; text-decoration:none; font-weight:800;">DOWNLOAD</a>`
                     }
-                    ${f.canManage && !currentUser.isGuest ? 
-                        `<button onclick="deleteFile('${f.name}')" style="background:transparent; border:1px solid var(--danger-red); color:var(--danger-red); padding:2px 6px; border-radius:3px; cursor:pointer; font-size:10px;">DEL</button>` : 
+                    ${f.canManage && !window.currentUser.isGuest ? 
+                        `<button onclick="deleteFile('${f.name}')" class="btn-del" style="background:transparent; border:1px solid var(--danger-red); color:var(--danger-red); padding:4px 8px; border-radius:4px; cursor:pointer; font-size:10px;">DEL</button>` : 
                         ''
                     }
                 </div>`;
 
-            // Append to "Your Shared Code" or "Community Shared Code"
-            if (f.owner === currentUser.username && !currentUser.isGuest) {
-                my.appendChild(row);
+            // Logic: Your assets vs. Community assets
+            if (f.owner === window.currentUser.username && !window.currentUser.isGuest) {
+                myContainer.appendChild(row);
             } else {
-                others.appendChild(row);
+                othersContainer.appendChild(row);
             }
         });
+        
+        // Final UI cleanup for Guests
+        if (window.currentUser.isGuest && typeof renderGuestRestrictedUI === 'function') {
+            renderGuestRestrictedUI();
+        }
+        
     } catch (err) {
-        console.error("CLOUD: Failed to sync file lists.", err);
+        console.error("CLOUD: Failed to sync lists.", err);
     }
 }
 
+// Global Export
 window.fetchFiles = fetchFiles;

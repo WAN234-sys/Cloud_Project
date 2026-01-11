@@ -1,0 +1,71 @@
+Project: SHARED CODE EXPLORER
+Developer: WAN234-sys (GitHub)
+License: Apache License 2.0
+Date: 2026-01-11
+Jurisdiction: Selangor, Malaysia
+1. Terms of Service (ToS)
+1.1 Introduction
+These Terms of Service ("ToS") govern your use of the SHARED CODE EXPLORER software platform, including web, desktop, and any associated applications. By using the software, you agree to these terms.
+1.2 Definitions
+Software: SHARED CODE EXPLORER application and related documentation.
+User: Any individual or entity accessing the Software.
+License: Rights granted under the Apache License 2.0.
+Content: User-generated or imported code, files, or data within the software.
+1.3 Scope of Use
+Users may install, use, and modify the Software according to the Apache 2.0 license.
+Redistribution is permitted under the license, subject to Apache 2.0 requirements.
+Prohibited activities include:
+Unauthorized reverse engineering for competitive purposes.
+Distribution of malicious code or malware.
+Using the Software to violate local, national, or international laws.
+1.4 User Responsibilities
+Maintain account security if account-based access exists.
+Provide accurate information when registering any account.
+Respect intellectual property rights of third parties.
+Comply with all usage restrictions outlined in these ToS.
+1.5 Limitation of Liability
+SHARED CODE EXPLORER is provided "AS IS", without warranty of any kind.
+WAN234-sys shall not be liable for damages including loss of profits, data, or business interruptions arising from use or inability to use the Software.
+Users assume full responsibility for risk of use.
+1.6 Intellectual Property Rights
+WAN234-sys retains all rights to code, documentation, and associated assets not covered by Apache 2.0.
+Users may modify and distribute the Software in accordance with the Apache 2.0 license, without altering attributions.
+1.7 Termination
+Use of the Software automatically terminates if these ToS are violated.
+Users may terminate use at any time by removing the Software from all systems.
+1.8 Privacy and Data Handling
+The Software may process user-provided code and data.
+Users are responsible for compliance with local data protection laws, including GDPR or PDPA, where applicable.
+No personal data is collected without explicit user consent.
+1.9 Updates and Service Changes
+WAN234-sys may release updates or patches at any time.
+Users agree to update the Software to maintain functional performance and security.
+1.10 Dispute Resolution
+Disputes shall be resolved through negotiation or, failing resolution, in accordance with Malaysian law via binding arbitration or court jurisdiction in Kuala Lumpur.
+2. Software Warranty (SW)
+2.1 Limited Warranty
+The Software is provided under Apache 2.0 license "AS IS", without explicit or implied warranty.
+WAN234-sys warrants only that the Software will be free from critical defects for 90 days from the date of installation or download under ordinary use.
+2.2 Warranty Exclusions
+This warranty does not cover:
+Errors from modifications or third-party integrations.
+Data loss, accidental misuse, or non-compliance with documentation.
+Security breaches originating from user environment or negligence.
+2.3 Remedies
+If a valid defect is reported within 90 days, WAN234-sys will use reasonable efforts to correct or patch the Software.
+In cases where defects cannot be corrected, the sole remedy is guidance to mitigate the defect; no financial compensation is provided.
+2.4 Intellectual Property Warranty
+WAN234-sys represents that the Software does not knowingly infringe third-party rights.
+Users distribute modifications in compliance with Apache 2.0, which includes attributions and notices.
+2.5 Disclaimer
+No warranty is provided regarding fitness for particular purposes, uninterrupted use, or performance in combination with third-party tools.
+WAN234-sys disclaims liability for any indirect, incidental, or consequential damages arising from use.
+3. Licensing Framework
+License: Apache License 2.0, permitting free use, modification, and distribution.
+Contributor Policies: Contributions to the Software must be under Apache 2.0.
+Distribution Obligations: Any redistribution must retain license headers, copyright notices, and disclaimers.
+4. Acceptance
+By installing, launching, or using SHARED CODE EXPLORER, you acknowledge that:
+You have read and understood these ToS and SW provisions.
+You agree to comply with all obligations outlined herein.
+Any use constitutes agreement to the Apache 2.0 license terms.

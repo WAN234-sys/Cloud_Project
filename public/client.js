@@ -4,9 +4,18 @@ let shieldTimer;
 
 // --- IDENTITY HANDSHAKE ---
 async function init() {
+    console.log("Checking authentication...");
     const res = await fetch('/api/auth/user');
     currentUser = await res.json();
     
+    console.log("Current User Data:", currentUser); // <--- Add this line
+    
+    if (currentUser.authenticated) {
+        // ... rest of your code
+    } else {
+        console.log("User not authenticated. Staying on login page.");
+    }
+}
     if (currentUser.authenticated) {
         document.getElementById('auth-section').style.display = 'none';
         document.getElementById('main-ui').style.display = 'block';

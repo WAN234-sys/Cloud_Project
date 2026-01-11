@@ -4,85 +4,100 @@ let shieldTimer;
 
 // --- IDENTITY HANDSHAKE ---
 async function init() {
-    console.log("Checking authentication...");
-    const res = await fetch('/api/auth/user');
-    currentUser = await res.json();
-    
-    console.log("Current User Data:", currentUser); // <--- Add this line
-    
-    if (currentUser.authenticated) {
-        // ... rest of your code
-    } else {
-        console.log("User not authenticated. Staying on login page.");
-    }
-}
-    if (currentUser.authenticated) {
-        document.getElementById('auth-section').style.display = 'none';
-        document.getElementById('main-ui').style.display = 'block';
+    console.log("Initiating Identity Handshake...");
+    try {
+        const res = await fetch('/api/auth/user');
+        currentUser = await res.json();
         
-        // Render Profile Area
-        document.getElementById('profile-anchor').innerHTML = `
-            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
-                <img src="${currentUser.avatar}" style="width:32px; border-radius:6px; border:1px solid var(--gh-border);">
-                <div>
-                    <div style="font-weight:bold; color:${currentUser.isAdmin ? 'var(--gold)' : 'white'}">
-                        ${currentUser.username} 
-                        ${currentUser.isAdmin ? '<span style="font-size:9px; background:var(--gold); color:black; padding:2px 4px; border-radius:3px; margin-left:5px;">ADMIN</span>' : ''}
-                    </div>
-                    <a href="/api/auth/logout" style="font-size:10px; color:var(--text-muted); text-decoration:none;">LOGOUT</a>
-                </div>
-            </div>`;
-        
-        if (currentUser.newRestoreAvailable) {
-            document.getElementById('recovery-shield').classList.add('glow');
+        console.log("Handshake Result:", currentUser);
+
+        if (currentUser.authenticated) {
+            // Switch UI visibility
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('main-ui').style.display = 'block';
+            
+            // Render Profile Header
+            const profileAnchor = document.getElementById('profile-anchor');
+            if (profileAnchor) {
+                profileAnchor.innerHTML = `
+                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
+                        <img src="${currentUser.avatar}" style="width:32px; border-radius:6px; border:1px solid var(--gh-border);">
+                        <div>
+                            <div style="font-weight:bold; color:${currentUser.isAdmin ? 'var(--gold)' : 'white'}">
+                                ${currentUser.username} 
+                                ${currentUser.isAdmin ? '<span style="font-size:9px; background:var(--gold); color:black; padding:2px 4px; border-radius:3px; margin-left:5px;">ADMIN</span>' : ''}
+                            </div>
+                            <a href="/api/auth/logout" style="font-size:10px; color:var(--text-muted); text-decoration:none;">LOGOUT</a>
+                        </div>
+                    </div>`;
+            }
+            
+            // Activate Restore Glow
+            if (currentUser.newRestoreAvailable) {
+                document.getElementById('recovery-shield').classList.add('glow');
+            }
+
+            fetchFiles();
+        } else {
+            console.log("Handshake Failed: Not Authenticated.");
         }
-        fetchFiles();
+    } catch (err) {
+        console.error("Critical Handshake Error:", err);
     }
 }
 
 // --- CLOUD FILE FETCHING ---
 async function fetchFiles() {
-    const res = await fetch('/api/cloud/files');
-    const files = await res.json();
-    const my = document.getElementById('my-file-list');
-    const others = document.getElementById('others-file-list');
-    my.innerHTML = ''; others.innerHTML = '';
+    try {
+        const res = await fetch('/api/cloud/files');
+        const files = await res.json();
+        const my = document.getElementById('my-file-list');
+        const others = document.getElementById('others-file-list');
+        
+        my.innerHTML = ''; 
+        others.innerHTML = '';
 
-    files.forEach(file => {
-        const isMine = file.name.includes(`_${currentUser.username}_`);
-        const row = document.createElement('div');
-        row.className = 'file-row';
-        row.innerHTML = `
-            <div>
-                <div style="font-family:'Fira Code'; font-size:14px;">${file.displayName}</div>
-                <div style="font-size:10px; color:${file.isBackedUp ? 'var(--electric-green)' : '#444'}">
-                    ${file.isBackedUp ? '[PROTECTED BY WARRANTY]' : '[UNPROTECTED]'}
+        files.forEach(file => {
+            const isMine = file.name.includes(`_${currentUser.username}_`);
+            const row = document.createElement('div');
+            row.className = 'file-row';
+            row.innerHTML = `
+                <div>
+                    <div style="font-family:'Fira Code'; font-size:14px;">${file.displayName}</div>
+                    <div style="font-size:10px; color:${file.isBackedUp ? 'var(--electric-green)' : '#444'}">
+                        ${file.isBackedUp ? '[PROTECTED BY WARRANTY]' : '[UNPROTECTED]'}
+                    </div>
                 </div>
-            </div>
-            <div style="display:flex; gap:15px; align-items:center;">
-                <a href="${file.url}" target="_blank" style="color:var(--text-muted); text-decoration:none; font-size:12px;">View</a>
-                ${file.canManage ? `<button onclick="deleteFile('${file.name}')" style="background:var(--danger-red); border:none; color:white; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">Delete</button>` : ''}
-            </div>`;
-        if(isMine) my.appendChild(row); else others.appendChild(row);
-    });
+                <div style="display:flex; gap:15px; align-items:center;">
+                    <a href="${file.url}" target="_blank" style="color:var(--text-muted); text-decoration:none; font-size:12px;">View</a>
+                    ${file.canManage ? `<button onclick="deleteFile('${file.name}')" style="background:var(--danger-red); border:none; color:white; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">Delete</button>` : ''}
+                </div>`;
+            if(isMine) my.appendChild(row); else others.appendChild(row);
+        });
+    } catch (err) {
+        console.error("Cloud fetch failed:", err);
+    }
 }
 
 // --- UPLOAD LOGIC ---
-document.getElementById('uploadBtn').addEventListener('click', async () => {
-    const fi = document.getElementById('fileInput');
-    if (!fi.files[0]) return;
+const uploadBtn = document.getElementById('uploadBtn');
+if (uploadBtn) {
+    uploadBtn.addEventListener('click', async () => {
+        const fi = document.getElementById('fileInput');
+        if (!fi.files[0]) return;
 
-    const fd = new FormData();
-    fd.append('cfile', fi.files[0]);
+        const fd = new FormData();
+        fd.append('cfile', fi.files[0]);
 
-    const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
-    if (res.status === 409) {
-        alert(await res.text());
-    } else {
-        fi.value = '';
-        fetchFiles();
-    }
-});
+        const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
+        if (res.status === 409) {
+            alert(await res.text());
+        } else {
+            fi.value = '';
+            fetchFiles();
+        }
+    });
+}
 
 // --- DELETE LOGIC ---
 async function deleteFile(name) {
@@ -92,9 +107,9 @@ async function deleteFile(name) {
     }
 }
 
-// --- RECOVERY PANEL (TRIPLE CLICK) ---
+// --- RECOVERY PANEL (TRIPLE CLICK SHIELD) ---
 function handleShieldClick() {
-    if (currentUser?.isAdmin) return; // Admins use terminal instead
+    if (currentUser?.isAdmin) return; 
     shieldClicks++;
     clearTimeout(shieldTimer);
     shieldTimer = setTimeout(() => shieldClicks = 0, 800);
@@ -117,7 +132,7 @@ async function submitRecovery() {
     document.getElementById('recovery-panel').classList.remove('open');
 }
 
-// --- ADMIN TERMINAL LOGIC ---
+// --- ADMIN TERMINAL COMMANDS (Ctrl+Shift+Alt+R) ---
 window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'R' && currentUser?.isAdmin) {
         const term = document.getElementById('admin-terminal');
@@ -126,30 +141,43 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-document.getElementById('term-input').addEventListener('keypress', async (e) => {
-    if (e.key === 'Enter') {
-        const cmd = e.target.value.trim();
-        const out = document.getElementById('term-output');
-        if (cmd.startsWith('/Recovery')) {
-            const parts = cmd.split(' ');
-            const res = await fetch('/api/admin/restore', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username: parts[1], filename: parts[2] })
-            });
-            out.innerHTML += `<div>> ${await res.text()}</div>`;
-            fetchFiles();
+const termInput = document.getElementById('term-input');
+if (termInput) {
+    termInput.addEventListener('keypress', async (e) => {
+        if (e.key === 'Enter') {
+            const cmd = e.target.value.trim();
+            const out = document.getElementById('term-output');
+            if (cmd.startsWith('/Recovery')) {
+                const parts = cmd.split(' ');
+                const res = await fetch('/api/admin/restore', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ username: parts[1], filename: parts[2] })
+                });
+                out.innerHTML += `<div>> ${await res.text()}</div>`;
+                fetchFiles();
+            }
+            e.target.value = '';
         }
-        e.target.value = '';
-    }
-});
-
-// --- TOS TOGGLE ---
-document.getElementById('tosAgree').addEventListener('change', (e) => {
-    document.querySelectorAll('.auth-btn').forEach(btn => {
-        btn.classList.toggle('disabled', !e.target.checked);
     });
-});
+}
 
-// RUN INIT ON LOAD
+// --- TOS TOGGLE (Fixes the Unclickable Button) ---
+const tosAgree = document.getElementById('tosAgree');
+if (tosAgree) {
+    tosAgree.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        document.querySelectorAll('.auth-btn').forEach(btn => {
+            if (isChecked) {
+                btn.classList.remove('disabled');
+                btn.style.pointerEvents = "auto";
+            } else {
+                btn.classList.add('disabled');
+                btn.style.pointerEvents = "none";
+            }
+        });
+    });
+}
+
+// AUTO-START
 init();

@@ -1,40 +1,81 @@
 :root {
-    --bg-dark: #0a090f; --card-bg: #14121d;
-    --electric-green: #2ecc71; --danger-red: #e74c3c;
-    --pure-white: #ffffff; --text-muted: #8b8b94;
-    --gh-border: #2d2b3b; --gold: #ffd700;
+    --bg-dark: #0a090f; 
+    --card-bg: #14121d;
+    --electric-green: #2ecc71; 
+    --danger-red: #e74c3c;
+    --pure-white: #ffffff; 
+    --text-muted: #8b8b94;
+    --gh-border: #2d2b3b; 
+    --gold: #ffd700;
 }
 
-body { background-color: var(--bg-dark); color: var(--pure-white); font-family: 'Space Grotesk', sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; overflow-y: scroll; }
-.container { width: 100%; max-width: 950px; display: flex; flex-direction: column; gap: 20px; padding-bottom: 100px; }
+body { 
+    background-color: var(--bg-dark); 
+    color: var(--pure-white); 
+    font-family: 'Space Grotesk', sans-serif; 
+    margin: 0; padding: 20px; 
+    display: flex; justify-content: center; 
+    min-height: 100vh; overflow-y: scroll; 
+}
+
+.container { 
+    width: 100%; max-width: 950px; 
+    display: flex; flex-direction: column; 
+    gap: 20px; padding-bottom: 100px; 
+}
 
 /* --- LOGIN BOX --- */
 .login-box {
-    background: var(--card-bg); border: 1px solid var(--gh-border);
-    padding: 40px; border-radius: 20px; text-align: center;
-    height: 160px; transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--card-bg); 
+    border: 1px solid var(--gh-border);
+    padding: 40px; border-radius: 20px; 
+    text-align: center;
+    height: 160px; 
+    transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; position: relative;
 }
-.login-box:hover { height: 500px; }
 
-.tos-container { margin: 20px 0; background:#000; padding:15px; border-radius:10px; }
-.auth-buttons { display:flex; gap:10px; justify-content:center; }
-.benefits-list { margin-top:30px; text-align:left; }
+/* Expand on hover to show benefits and buttons */
+.login-box:hover { height: 550px; }
+
+.tos-container { 
+    margin: 20px 0; 
+    background: #000; 
+    padding: 15px; 
+    border-radius: 10px; 
+    border: 1px solid #222;
+}
+
+.auth-buttons { 
+    display: flex; 
+    gap: 10px; 
+    justify-content: center; 
+    align-items: center;
+}
+
+.benefits-list { margin-top: 30px; text-align: left; }
 
 /* --- CONIC HOVER ANIMATION --- */
 .custom-file-label {
-    position: relative; width: 100%; height: 80px; display: flex; 
-    align-items: center; justify-content: center; background: #000; 
-    color: white; border-radius: 12px; cursor: pointer; overflow: hidden; 
-    font-weight: 800; border: 1px solid #333;
+    position: relative; width: 100%; height: 80px; 
+    display: flex; align-items: center; justify-content: center; 
+    background: #000; color: white; border-radius: 12px; 
+    cursor: pointer; overflow: hidden; font-weight: 800; 
+    border: 1px solid #333;
 }
+
 .custom-file-label::after {
     content: ''; position: absolute; width: 200%; height: 200%;
     background: conic-gradient(var(--electric-green), #fff, var(--electric-green));
     animation: rotate-conic 1.5s linear infinite; display: none;
 }
+
 .custom-file-label:hover::after { display: block; }
-@keyframes rotate-conic { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+@keyframes rotate-conic { 
+    from { transform: rotate(0deg); } 
+    to { transform: rotate(360deg); } 
+}
 
 .custom-file-label span {
     position: relative; z-index: 5; background: #000;
@@ -44,8 +85,16 @@ body { background-color: var(--bg-dark); color: var(--pure-white); font-family: 
 }
 
 /* --- RECOVERY & SHIELD --- */
-#recovery-shield { position: fixed; bottom: 25px; left: 25px; cursor: pointer; font-size: 24px; color: #222; transition: 0.4s; z-index: 1000; }
-#recovery-shield.glow { color: var(--electric-green); filter: drop-shadow(0 0 10px var(--electric-green)); }
+#recovery-shield { 
+    position: fixed; bottom: 25px; left: 25px; 
+    cursor: pointer; font-size: 24px; color: #222; 
+    transition: 0.4s; z-index: 1000; 
+}
+
+#recovery-shield.glow { 
+    color: var(--electric-green); 
+    filter: drop-shadow(0 0 10px var(--electric-green)); 
+}
 
 #recovery-panel {
     position: fixed; left: -300px; top: 50%; transform: translateY(-50%);
@@ -53,25 +102,77 @@ body { background-color: var(--bg-dark); color: var(--pure-white); font-family: 
     border-left: 4px solid var(--electric-green); padding: 25px;
     border-radius: 0 15px 15px 0; transition: 0.5s; z-index: 999;
 }
+
 #recovery-panel.open { left: 0; }
-#recovery-panel input { width:100%; background:#000; border:1px solid #333; color:white; padding:10px; border-radius:6px; margin-bottom:10px; }
+
+#recovery-panel input { 
+    width: 100%; background: #000; border: 1px solid #333; 
+    color: white; padding: 10px; border-radius: 6px; margin-bottom: 10px; 
+}
 
 /* --- TERMINAL --- */
 #admin-terminal {
-    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    display: none; position: fixed; top: 50%; left: 50%; 
+    transform: translate(-50%, -50%);
     width: 600px; height: 350px; background: #050505; border: 1px solid #333;
-    padding: 20px; border-radius: 12px; flex-direction: column; z-index: 10000; font-family: 'Fira Code', monospace;
+    padding: 20px; border-radius: 12px; flex-direction: column; 
+    z-index: 10000; font-family: 'Fira Code', monospace;
 }
-#term-output { flex-grow:1; color:var(--electric-green); font-size:12px; overflow-y:auto; }
-#term-input { background:none; border:none; color:white; width:100%; outline:none; }
 
-/* --- UI HELPERS --- */
-.btn-transmit { background: var(--electric-green); color: #000; border: none; padding: 12px 30px; border-radius: 8px; font-weight: 800; cursor: pointer; transition: 0.4s; text-decoration: none; }
-.disabled { opacity: 0.3; pointer-events: none; }
-.file-row { background: var(--card-bg); border-radius: 12px; border: 1px solid var(--gh-border); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.benefit-card { background: #000; padding: 15px; border-radius: 10px; margin-bottom: 10px; text-align: left; border: 1px solid #222; font-size: 13px; }
-.section-title { margin-top:30px; font-size:12px; color:var(--text-muted); letter-spacing:2px; border-left:3px solid var(--electric-green); padding-left:10px; }
-.upload-box { background:var(--card-bg); padding:30px; border-radius:20px; border:1px solid var(--gh-border); }
+#term-output { flex-grow: 1; color: var(--electric-green); font-size: 12px; overflow-y: auto; margin-bottom: 10px; }
+#term-input { background: none; border: none; color: white; width: 100%; outline: none; font-family: inherit; }
+
+/* --- UI HELPERS & BUTTONS --- */
+.btn-transmit { 
+    background: var(--electric-green); color: #000; 
+    border: none; padding: 12px 30px; border-radius: 8px; 
+    font-weight: 800; cursor: pointer; transition: 0.4s; 
+    text-decoration: none; display: inline-block;
+}
+
+.btn-transmit:hover { filter: brightness(1.2); }
+
+/* CRITICAL: Disables interaction until checkbox is ticked */
+.disabled { 
+    opacity: 0.2; 
+    pointer-events: none; 
+    cursor: not-allowed; 
+    filter: grayscale(1);
+}
+
+.file-row { 
+    background: var(--card-bg); border-radius: 12px; 
+    border: 1px solid var(--gh-border); padding: 15px 20px; 
+    display: flex; justify-content: space-between; 
+    align-items: center; margin-bottom: 12px; 
+}
+
+.benefit-card { 
+    background: #000; padding: 15px; border-radius: 10px; 
+    margin-bottom: 10px; text-align: left; 
+    border: 1px solid #222; font-size: 13px; 
+}
+
+.section-title { 
+    margin-top: 30px; font-size: 12px; color: var(--text-muted); 
+    letter-spacing: 2px; border-left: 3px solid var(--electric-green); 
+    padding-left: 10px; text-transform: uppercase;
+}
+
+.upload-box { 
+    background: var(--card-bg); padding: 30px; 
+    border-radius: 20px; border: 1px solid var(--gh-border); 
+}
+
+/* --- GUEST TOOLTIP --- */
 .guest-btn-wrapper { position: relative; }
-.guest-note { position: absolute; bottom: 110%; left: 0; background: #222; color: #fff; padding: 10px; border-radius: 6px; font-size: 11px; width: 180px; visibility: hidden; opacity: 0; transition: 0.3s; z-index: 10; }
+
+.guest-note { 
+    position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%);
+    background: #1a1a1a; color: #fff; padding: 10px; border-radius: 6px; 
+    font-size: 11px; width: 180px; visibility: hidden; opacity: 0; 
+    transition: 0.3s; z-index: 10; border: 1px solid #333; pointer-events: none;
+    text-align: center;
+}
+
 .guest-btn-wrapper:hover .guest-note { visibility: visible; opacity: 1; }

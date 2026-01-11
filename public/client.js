@@ -4,6 +4,7 @@ let shieldTimer;
 
 /**
  * --- IDENTITY HANDSHAKE ---
+ * Checks session and initializes UI once server confirms identity.
  */
 async function init() {
     console.log("Initiating Identity Handshake...");
@@ -11,23 +12,27 @@ async function init() {
         const res = await fetch('/api/auth/user');
         currentUser = await res.json();
         
+        console.log("Handshake Result:", currentUser);
+
         if (currentUser.authenticated) {
-            // Reveal UI
+            // 1. Switch UI visibility
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // Render Profile with the code icon
+            // 2. Render Profile (Reveals the hidden code icon)
             renderProfile();
 
-            // Bind Listeners
+            // 3. Bind Action Listeners
             setupActionListeners();
 
+            // 4. Recovery Shield Glow
             if (currentUser.newRestoreAvailable) {
                 document.getElementById('recovery-shield').classList.add('glow');
             }
 
             fetchFiles();
         } else {
+            // Even if not logged in, we must bind the TOS checkbox logic
             setupTOSListener();
         }
     } catch (err) {
@@ -36,22 +41,37 @@ async function init() {
 }
 
 /**
- * --- UI EFFECTS: SCE EXPLORER GLOW ---
+ * --- UI EFFECTS: RANDOM SEQUENCE GLOW ---
+ * Picks words in a random order to light up, 
+ * then resets them all after a delay.
  */
-function triggerTitleGlow() {
-    const title = document.getElementById('app-title');
-    if (!title) return;
+function triggerSequenceGlow() {
+    const words = Array.from(document.querySelectorAll('.glow-word'));
+    if (words.length === 0) return;
 
-    title.classList.add('glowing');
+    // Create a shuffled copy of the words array
+    const shuffledWords = words.sort(() => Math.random() - 0.5);
+    const delayBetweenWords = 400; // 0.4 seconds gap
+
+    // 1. Turn on each word in the random shuffled order
+    shuffledWords.forEach((word, index) => {
+        setTimeout(() => {
+            word.classList.add('active');
+        }, index * delayBetweenWords);
+    });
+
+    // 2. Turn off all words back to dim after they are all lit
+    // Calculation: (Number of words * gap) + 2 seconds of full visibility
+    const totalDisplayTime = (words.length * delayBetweenWords) + 2000; 
     
-    // Auto-remove glow after 3 seconds
     setTimeout(() => {
-        title.classList.remove('glowing');
-    }, 3000);
+        words.forEach(word => word.classList.remove('active'));
+    }, totalDisplayTime);
 }
 
 /**
  * --- BUTTON BINDING LOGIC ---
+ * This ensures "Transmit" and other buttons actually fire.
  */
 function setupActionListeners() {
     const uploadBtn = document.getElementById('uploadBtn');

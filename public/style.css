@@ -50,38 +50,19 @@ body {
     transform: scale(1.1);
 }
 
-/* --- PROFILE & HIDDEN ICON --- */
-#profile-anchor {
-    display: none;
-    margin-bottom: 10px;
-}
-
-.user-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #000;
-    border: 1px solid var(--gh-border);
-    border-radius: 6px;
-    width: 32px;
-    height: 32px;
-    font-size: 14px;
-    transition: 0.3s;
-}
-
-/* --- LOGIN BOX & LEGAL LINKS --- */
+/* --- LOGIN BOX & AUTH BUTTONS --- */
 .login-box {
     background: var(--card-bg); 
     border: 1px solid var(--gh-border);
     padding: 40px; border-radius: 20px; 
     text-align: center;
-    height: 160px; 
-    transition: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 180px; /* Adjusted base height for two buttons */
+    transition: 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden; position: relative;
 }
 
-/* Height increased to fit 'How to Code' and Keyword content */
-.login-box:hover { height: 620px; }
+/* Expands to fit benefits + keyword footer */
+.login-box:hover { height: 750px; }
 
 .tos-container { 
     margin: 20px 0; 
@@ -104,7 +85,7 @@ body {
     filter: drop-shadow(0 0 5px var(--electric-green));
 }
 
-/* --- INFO CARDS & C-KEYWORDS --- */
+/* --- EXPANDABLE BENEFIT CARDS --- */
 .benefits-list {
     margin-top: 30px; 
     border-top: 1px solid #222; 
@@ -112,34 +93,78 @@ body {
     text-align: left;
 }
 
-.benefit-card {
+.benefit-card.expandable {
+    background: #0d0c12;
+    border: 1px solid #222;
+    border-radius: 12px;
+    padding: 15px;
     margin-bottom: 15px;
+    cursor: pointer;
+    max-height: 50px; /* Collapsed state showing only title */
+    transition: 0.5s ease-in-out;
+    overflow: hidden;
+}
+
+.benefit-card.expandable:hover {
+    max-height: 400px; /* Expanded state to show text + image */
+    border-color: var(--electric-green);
+    background: #111018;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--electric-green);
+    display: flex;
+    align-items: center;
+}
+
+.card-title i { margin-right: 12px; }
+
+.card-expanded-content {
+    margin-top: 15px;
     font-size: 13px;
-    line-height: 1.5;
-    color: var(--pure-white);
+    line-height: 1.6;
+    color: var(--text-muted);
 }
 
-.benefit-card i {
-    color: var(--electric-green);
-    margin-right: 10px;
-    width: 20px;
+.example-pic {
+    margin-top: 15px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
 }
 
-.benefit-card b {
-    color: var(--electric-green);
+.example-pic img {
+    width: 100%;
+    display: block;
+    opacity: 0.8;
+    transition: 0.3s;
 }
 
-.benefit-card code {
+.example-pic:hover img { opacity: 1; }
+
+/* --- KEYWORD FOOTER --- */
+.keyword-footer {
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #222;
+}
+
+.keyword-footer code {
     font-family: 'Fira Code', monospace;
+    font-size: 10px;
+    color: #444; /* Dim color as requested */
+    display: block;
+    line-height: 1.5;
+    text-align: left;
     background: #000;
     padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #222;
-    display: block;
-    margin-top: 8px;
+    border-radius: 5px;
 }
 
-/* --- UPLOAD BOX & CONIC ANIMATION --- */
+/* --- UPLOAD BOX & ANIMATIONS --- */
 .upload-box { 
     background: var(--card-bg); padding: 30px; 
     border-radius: 20px; border: 1px solid var(--gh-border); 
@@ -173,7 +198,7 @@ body {
     border-radius: 10px; transition: 0.3s;
 }
 
-/* --- RECOVERY & SHIELD --- */
+/* --- RECOVERY & TERMINAL --- */
 #recovery-shield { 
     position: fixed; bottom: 25px; left: 25px; 
     cursor: pointer; font-size: 24px; color: #222; 
@@ -185,16 +210,6 @@ body {
     filter: drop-shadow(0 0 10px var(--electric-green)); 
 }
 
-#recovery-panel {
-    position: fixed; left: -300px; top: 50%; transform: translateY(-50%);
-    width: 260px; background: #0a0a0a; border: 1px solid var(--gh-border);
-    border-left: 4px solid var(--electric-green); padding: 25px;
-    border-radius: 0 15px 15px 0; transition: 0.5s; z-index: 999;
-}
-
-#recovery-panel.open { left: 0; }
-
-/* --- TERMINAL --- */
 #admin-terminal {
     display: none; position: fixed; top: 50%; left: 50%; 
     transform: translate(-50%, -50%);
@@ -203,9 +218,7 @@ body {
     z-index: 10000; font-family: 'Fira Code', monospace;
 }
 
-#term-output { flex-grow: 1; color: var(--electric-green); font-size: 12px; overflow-y: auto; margin-bottom: 10px; }
-
-/* --- BUTTONS & LISTS --- */
+/* --- BUTTONS & MISC --- */
 .btn-transmit { 
     background: var(--electric-green); color: #000; 
     border: none; padding: 12px 30px; border-radius: 8px; 
@@ -219,13 +232,6 @@ body {
     opacity: 0.2; 
     pointer-events: none; 
     filter: grayscale(1);
-}
-
-.file-row { 
-    background: var(--card-bg); border-radius: 12px; 
-    border: 1px solid var(--gh-border); padding: 15px 20px; 
-    display: flex; justify-content: space-between; 
-    align-items: center; margin-bottom: 12px; 
 }
 
 .section-title { 

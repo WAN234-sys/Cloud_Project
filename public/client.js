@@ -4,7 +4,7 @@ let shieldTimer;
 
 /**
  * --- IDENTITY HANDSHAKE ---
- * Checks if a session exists and switches the UI from Login to App.
+ * Checks session and initializes button listeners only after elements exist.
  */
 async function init() {
     console.log("Initiating Identity Handshake...");
@@ -15,35 +15,25 @@ async function init() {
         console.log("Handshake Result:", currentUser);
 
         if (currentUser.authenticated) {
-            // Hide Login Box, Show Main App
+            // 1. Switch UI visibility
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // Render User Profile Header
-            const profileAnchor = document.getElementById('profile-anchor');
-            if (profileAnchor) {
-                profileAnchor.innerHTML = `
-                    <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
-                        <img src="${currentUser.avatar}" style="width:32px; border-radius:6px; border:1px solid var(--gh-border);">
-                        <div>
-                            <div style="font-weight:bold; color:${currentUser.isAdmin ? 'var(--gold)' : 'white'}">
-                                ${currentUser.username} 
-                                ${currentUser.isAdmin ? '<span style="font-size:9px; background:var(--gold); color:black; padding:2px 4px; border-radius:3px; margin-left:5px;">ADMIN</span>' : ''}
-                            </div>
-                            <a href="/api/auth/logout" style="font-size:10px; color:var(--text-muted); text-decoration:none;">LOGOUT</a>
-                        </div>
-                    </div>`;
-            }
-            
-            // Activate the "Green Glow" if an Admin restored a file for you
+            // 2. Render Profile
+            renderProfile();
+
+            // 3. Bind Button Listeners (The fix for "No Effect")
+            setupActionListeners();
+
+            // 4. Activate Glow if needed
             if (currentUser.newRestoreAvailable) {
                 document.getElementById('recovery-shield').classList.add('glow');
             }
 
-            // Load the cloud projects
             fetchFiles();
         } else {
-            console.log("Handshake Failed: User is Guest/Unauthenticated.");
+            // Even if not logged in, we must bind the TOS checkbox logic
+            setupTOSListener();
         }
     } catch (err) {
         console.error("Critical Handshake Error:", err);
@@ -51,8 +41,67 @@ async function init() {
 }
 
 /**
+ * --- BUTTON BINDING LOGIC ---
+ * This ensures "Transmit" and other buttons actually fire.
+ */
+function setupActionListeners() {
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+
+    if (uploadBtn) {
+        uploadBtn.onclick = async () => {
+            if (!fileInput.files[0]) {
+                alert("Select a .c file first.");
+                return;
+            }
+
+            uploadBtn.innerText = "TRANSMITTING...";
+            uploadBtn.style.opacity = "0.5";
+            uploadBtn.disabled = true;
+
+            const fd = new FormData();
+            fd.append('cfile', fileInput.files[0]);
+
+            try {
+                const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
+                if (res.ok) {
+                    fileInput.value = '';
+                    document.getElementById('file-label-text').innerText = "CHOOSE .C PROJECT";
+                    fetchFiles();
+                } else {
+                    const errText = await res.text();
+                    alert("Cloud Error: " + errText);
+                }
+            } catch (err) {
+                alert("Connection failed.");
+            } finally {
+                uploadBtn.innerText = "TRANSMIT TO CLOUD";
+                uploadBtn.style.opacity = "1";
+                uploadBtn.disabled = false;
+            }
+        };
+    }
+}
+
+function renderProfile() {
+    const profileAnchor = document.getElementById('profile-anchor');
+    if (profileAnchor) {
+        profileAnchor.innerHTML = `
+            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
+                <img src="${currentUser.avatar}" style="width:32px; border-radius:6px; border:1px solid var(--gh-border);">
+                <div>
+                    <div style="font-weight:bold; color:${currentUser.isAdmin ? 'var(--gold)' : 'white'}">
+                        ${currentUser.username} 
+                        ${currentUser.isAdmin ? '<span style="font-size:9px; background:var(--gold); color:black; padding:2px 4px; border-radius:3px; margin-left:5px;">ADMIN</span>' : ''}
+                    </div>
+                    <a href="/api/auth/logout" style="font-size:10px; color:var(--text-muted); text-decoration:none;">LOGOUT</a>
+                </div>
+            </div>`;
+    }
+}
+
+/**
  * --- CLOUD FILE FETCHING ---
- * Populates your projects and the community cloud.
  */
 async function fetchFiles() {
     try {
@@ -65,7 +114,6 @@ async function fetchFiles() {
         others.innerHTML = '';
 
         files.forEach(file => {
-            // Logic to check if the file belongs to the logged-in user
             const isMine = file.name.includes(`_${currentUser.username}_`);
             const row = document.createElement('div');
             row.className = 'file-row';
@@ -89,31 +137,6 @@ async function fetchFiles() {
     }
 }
 
-/**
- * --- UPLOAD LOGIC ---
- */
-const uploadBtn = document.getElementById('uploadBtn');
-if (uploadBtn) {
-    uploadBtn.addEventListener('click', async () => {
-        const fi = document.getElementById('fileInput');
-        if (!fi.files[0]) return;
-
-        const fd = new FormData();
-        fd.append('cfile', fi.files[0]);
-
-        const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
-        if (res.status === 409) {
-            alert(await res.text()); // File already exists error
-        } else {
-            fi.value = '';
-            fetchFiles(); // Refresh list
-        }
-    });
-}
-
-/**
- * --- DELETE LOGIC ---
- */
 async function deleteFile(name) {
     if (confirm("Permanently delete from primary? (Backup copy remains safe)")) {
         await fetch(`/api/cloud/files/${name}`, { method: 'DELETE' });
@@ -122,10 +145,10 @@ async function deleteFile(name) {
 }
 
 /**
- * --- RECOVERY PANEL (Triple Click Secret) ---
+ * --- RECOVERY SYSTEM ---
  */
 function handleShieldClick() {
-    if (currentUser?.isAdmin) return; // Admins don't need the UI panel
+    if (currentUser?.isAdmin) return;
     shieldClicks++;
     clearTimeout(shieldTimer);
     shieldTimer = setTimeout(() => shieldClicks = 0, 800);
@@ -152,8 +175,7 @@ async function submitRecovery() {
 }
 
 /**
- * --- ADMIN TERMINAL (Key Shortcut) ---
- * Ctrl + Shift + Alt + R
+ * --- ADMIN TERMINAL ---
  */
 window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'R' && currentUser?.isAdmin) {
@@ -171,7 +193,7 @@ if (termInput) {
             const out = document.getElementById('term-output');
             
             if (cmd.startsWith('/Recovery')) {
-                const parts = cmd.split(' '); // /Recovery user file.c
+                const parts = cmd.split(' ');
                 const res = await fetch('/api/admin/restore', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -179,35 +201,31 @@ if (termInput) {
                 });
                 const resultText = await res.text();
                 out.innerHTML += `<div style="color:var(--gold)">> ${resultText}</div>`;
-                fetchFiles(); // Update UI with restored file
+                fetchFiles();
             }
             e.target.value = '';
-            out.scrollTop = out.scrollHeight; // Auto-scroll terminal
+            out.scrollTop = out.scrollHeight;
         }
     });
 }
 
 /**
  * --- TOS TOGGLE ---
- * Unlocks the login buttons when the checkbox is ticked.
  */
-const tosAgree = document.getElementById('tosAgree');
-if (tosAgree) {
-    tosAgree.addEventListener('change', (e) => {
-        const isChecked = e.target.checked;
-        document.querySelectorAll('.auth-btn').forEach(btn => {
-            if (isChecked) {
-                btn.classList.remove('disabled');
-                btn.style.pointerEvents = "auto";
-                btn.style.opacity = "1";
-            } else {
-                btn.classList.add('disabled');
-                btn.style.pointerEvents = "none";
-                btn.style.opacity = "0.3";
-            }
-        });
-    });
+function setupTOSListener() {
+    const tosAgree = document.getElementById('tosAgree');
+    if (tosAgree) {
+        tosAgree.onchange = (e) => {
+            const isChecked = e.target.checked;
+            document.querySelectorAll('.auth-btn').forEach(btn => {
+                btn.style.pointerEvents = isChecked ? "auto" : "none";
+                btn.style.opacity = isChecked ? "1" : "0.3";
+                if(isChecked) btn.classList.remove('disabled');
+                else btn.classList.add('disabled');
+            });
+        };
+    }
 }
 
-// --- BOOTSTRAP ---
+// BOOTSTRAP
 init();

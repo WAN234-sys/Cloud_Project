@@ -4,7 +4,6 @@ let shieldTimer;
 
 /**
  * --- IDENTITY HANDSHAKE ---
- * Checks session and initializes button listeners only after elements exist.
  */
 async function init() {
     console.log("Initiating Identity Handshake...");
@@ -12,27 +11,23 @@ async function init() {
         const res = await fetch('/api/auth/user');
         currentUser = await res.json();
         
-        console.log("Handshake Result:", currentUser);
-
         if (currentUser.authenticated) {
-            // 1. Switch UI visibility
+            // Reveal UI
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // 2. Render Profile
+            // Render Profile with the code icon
             renderProfile();
 
-            // 3. Bind Button Listeners (The fix for "No Effect")
+            // Bind Listeners
             setupActionListeners();
 
-            // 4. Activate Glow if needed
             if (currentUser.newRestoreAvailable) {
                 document.getElementById('recovery-shield').classList.add('glow');
             }
 
             fetchFiles();
         } else {
-            // Even if not logged in, we must bind the TOS checkbox logic
             setupTOSListener();
         }
     } catch (err) {
@@ -41,8 +36,22 @@ async function init() {
 }
 
 /**
+ * --- UI EFFECTS: SCE EXPLORER GLOW ---
+ */
+function triggerTitleGlow() {
+    const title = document.getElementById('app-title');
+    if (!title) return;
+
+    title.classList.add('glowing');
+    
+    // Auto-remove glow after 3 seconds
+    setTimeout(() => {
+        title.classList.remove('glowing');
+    }, 3000);
+}
+
+/**
  * --- BUTTON BINDING LOGIC ---
- * This ensures "Transmit" and other buttons actually fire.
  */
 function setupActionListeners() {
     const uploadBtn = document.getElementById('uploadBtn');
@@ -83,12 +92,19 @@ function setupActionListeners() {
     }
 }
 
+/**
+ * --- PROFILE RENDER (HIDDEN ICON LOGIC) ---
+ */
 function renderProfile() {
     const profileAnchor = document.getElementById('profile-anchor');
     if (profileAnchor) {
+        // Only show the anchor (containing the icon) once logged in
+        profileAnchor.style.display = 'block';
         profileAnchor.innerHTML = `
             <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
-                <img src="${currentUser.avatar}" style="width:32px; border-radius:6px; border:1px solid var(--gh-border);">
+                <div class="user-icon" style="color:var(--electric-green); border:1px solid #333; padding:6px 10px; border-radius:4px; background:#0d1117;">
+                    <i class="fas fa-code"></i>
+                </div>
                 <div>
                     <div style="font-weight:bold; color:${currentUser.isAdmin ? 'var(--gold)' : 'white'}">
                         ${currentUser.username} 

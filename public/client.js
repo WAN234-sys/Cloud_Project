@@ -19,7 +19,7 @@ async function init() {
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // 2. Render Profile (Reveals the hidden code icon)
+            // 2. Render Profile
             renderProfile();
 
             // 3. Bind Action Listeners
@@ -32,7 +32,7 @@ async function init() {
 
             fetchFiles();
         } else {
-            // Even if not logged in, we must bind the TOS checkbox logic
+            // Bind the logic that handles the GitHub lock vs Guest unlock
             setupTOSListener();
         }
     } catch (err) {
@@ -41,27 +41,54 @@ async function init() {
 }
 
 /**
+ * --- TOS TOGGLE LOGIC ---
+ * Modified: GitHub requires agreement, Guest is always accessible.
+ */
+function setupTOSListener() {
+    const tosAgree = document.getElementById('tosAgree');
+    const ghBtn = document.getElementById('ghBtn');
+    
+    // Ensure Guest button is always active regardless of agreement
+    const guestBtns = document.querySelectorAll('.auth-btn:not(#ghBtn)');
+    guestBtns.forEach(btn => {
+        btn.classList.remove('disabled');
+        btn.style.pointerEvents = "auto";
+        btn.style.opacity = "1";
+    });
+
+    if (tosAgree && ghBtn) {
+        tosAgree.onchange = (e) => {
+            const isChecked = e.target.checked;
+            
+            // Toggle GitHub button only
+            ghBtn.style.pointerEvents = isChecked ? "auto" : "none";
+            ghBtn.style.opacity = isChecked ? "1" : "0.3";
+            
+            if (isChecked) {
+                ghBtn.classList.remove('disabled');
+            } else {
+                ghBtn.classList.add('disabled');
+            }
+        };
+    }
+}
+
+/**
  * --- UI EFFECTS: RANDOM SEQUENCE GLOW ---
- * Picks words in a random order to light up, 
- * then resets them all after a delay.
  */
 function triggerSequenceGlow() {
     const words = Array.from(document.querySelectorAll('.glow-word'));
     if (words.length === 0) return;
 
-    // Create a shuffled copy of the words array
     const shuffledWords = words.sort(() => Math.random() - 0.5);
-    const delayBetweenWords = 400; // 0.4 seconds gap
+    const delayBetweenWords = 400; 
 
-    // 1. Turn on each word in the random shuffled order
     shuffledWords.forEach((word, index) => {
         setTimeout(() => {
             word.classList.add('active');
         }, index * delayBetweenWords);
     });
 
-    // 2. Turn off all words back to dim after they are all lit
-    // Calculation: (Number of words * gap) + 2 seconds of full visibility
     const totalDisplayTime = (words.length * delayBetweenWords) + 2000; 
     
     setTimeout(() => {
@@ -71,7 +98,6 @@ function triggerSequenceGlow() {
 
 /**
  * --- BUTTON BINDING LOGIC ---
- * This ensures "Transmit" and other buttons actually fire.
  */
 function setupActionListeners() {
     const uploadBtn = document.getElementById('uploadBtn');
@@ -113,12 +139,11 @@ function setupActionListeners() {
 }
 
 /**
- * --- PROFILE RENDER (HIDDEN ICON LOGIC) ---
+ * --- PROFILE RENDER ---
  */
 function renderProfile() {
     const profileAnchor = document.getElementById('profile-anchor');
     if (profileAnchor) {
-        // Only show the anchor (containing the icon) once logged in
         profileAnchor.style.display = 'block';
         profileAnchor.innerHTML = `
             <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
@@ -243,24 +268,6 @@ if (termInput) {
             out.scrollTop = out.scrollHeight;
         }
     });
-}
-
-/**
- * --- TOS TOGGLE ---
- */
-function setupTOSListener() {
-    const tosAgree = document.getElementById('tosAgree');
-    if (tosAgree) {
-        tosAgree.onchange = (e) => {
-            const isChecked = e.target.checked;
-            document.querySelectorAll('.auth-btn').forEach(btn => {
-                btn.style.pointerEvents = isChecked ? "auto" : "none";
-                btn.style.opacity = isChecked ? "1" : "0.3";
-                if(isChecked) btn.classList.remove('disabled');
-                else btn.classList.add('disabled');
-            });
-        };
-    }
 }
 
 // BOOTSTRAP

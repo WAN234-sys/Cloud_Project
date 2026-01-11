@@ -35,34 +35,52 @@
             <div class="login-box">
                 <h2 id="bridge-label">Connect to have access</h2>
                 
-                <div class="tos-container" style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; margin-bottom:20px; border:1px solid #222;">
-                    <input type="checkbox" id="tosAgree"> 
-                    <label for="tosAgree" style="cursor:pointer; margin-left:8px; font-size:12px;">
-                        Accept <span class="legal-link" onclick="alert('TERMS: User assumes all responsibility for uploaded code logic.')">Terms of Service</span> 
-                        & <span class="legal-link" onclick="alert('WARRANTY: No guarantee of compilation success on remote servers.')">Warranty</span>
-                    </label>
-                </div>
-                
-                <div class="auth-buttons" style="display:flex; gap:10px; justify-content:center;">
+                <div class="auth-buttons" style="display:flex; gap:10px; justify-content:center; margin-bottom: 20px;">
                     <a href="/api/auth/github" id="ghBtn" class="btn-transmit disabled auth-btn">GitHub</a>
+                    
                     <div class="guest-btn-wrapper" style="position:relative;">
-                        <a href="/api/auth/guest" class="btn-transmit disabled auth-btn" style="background:white; color:black;">Guest</a>
-                        <div class="guest-note">Note: Guest access is read-only. No Warranty protection.</div>
+                        <a href="/api/auth/guest" class="btn-transmit auth-btn" style="background:white; color:black;">Guest</a>
+                        <div class="guest-note">Note: Guest access is read-only.</div>
                     </div>
                 </div>
 
+                <div class="tos-container" style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; margin-bottom:20px; border:1px solid #222;">
+                    <input type="checkbox" id="tosAgree"> 
+                    <label for="tosAgree" style="cursor:pointer; margin-left:8px; font-size:12px;">
+                        Accept <span class="legal-link" onclick="alert('TERMS: User assumes all responsibility for GitHub sync.')">Terms of Service</span> 
+                        & <span class="legal-link" onclick="alert('WARRANTY: No guarantee of data persistence.')">Warranty</span> to enable GitHub
+                    </label>
+                </div>
+
                 <div class="benefits-list" style="margin-top:30px; border-top:1px solid #222; padding-top:20px;">
-                    <div class="benefit-card">
-                        <i class="fas fa-terminal"></i> <b>How to Code C:</b> 
-                        Start with #include &lt;stdio.h&gt;, define int main(), write your logic, and always return 0. Use a compiler like GCC to turn code into machine instructions.
+                    
+                    <div class="benefit-card expandable">
+                        <div class="card-title">
+                            <i class="fas fa-terminal"></i> <b>How to Code C</b>
+                        </div>
+                        <div class="card-expanded-content">
+                            <p>Start with <code>#include &lt;stdio.h&gt;</code>, define <code>int main()</code>, write your logic, and always return 0. Use a compiler like GCC to turn code into machine instructions.</p>
+                            <div class="example-pic">
+                                <img src="https://via.placeholder.com/400x150/000000/2ecc71?text=C+Structure+Example" alt="C Logic Example">
+                            </div>
+                        </div>
                     </div>
-                    <div class="benefit-card">
-                        <i class="fas fa-laptop-code"></i> <b>Best Apps for C:</b> 
-                        VS Code (with C/C++ Extension), CLion, Dev-C++, Code::Blocks, or Xcode (Mac).
+
+                    <div class="benefit-card expandable">
+                        <div class="card-title">
+                            <i class="fas fa-laptop-code"></i> <b>Best Apps for C</b>
+                        </div>
+                        <div class="card-expanded-content">
+                            <p>VS Code (with C/C++ Extension), CLion, Dev-C++, Code::Blocks, or Xcode (Mac).</p>
+                            <div class="example-pic">
+                                <img src="https://via.placeholder.com/400x150/000000/2ecc71?text=IDE+Setup+Example" alt="App Example">
+                            </div>
+                        </div>
                     </div>
-                    <div class="benefit-card">
-                        <i class="fas fa-microchip"></i> <b>C Keywords:</b> 
-                        <code style="font-size: 10px; color: var(--text-muted); display: block; margin-top: 5px; line-height: 1.4;">
+
+                    <div class="keyword-footer">
+                        <p style="color:var(--electric-green); font-size:10px; letter-spacing:1px; margin-bottom:5px;">C KEYWORDS:</p>
+                        <code>
                             auto break case char const continue default do double else enum extern float for goto if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while
                         </code>
                     </div>

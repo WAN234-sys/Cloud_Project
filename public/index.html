@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCE v0.2.1-b | SECURE REPOSITORY</title>
+    <title>SCE v0.2.11 | SECURE REPOSITORY</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -12,110 +12,102 @@
 </head>
 <body>
 
-    <div id="recovery-shield" onclick="handleShieldClick()">
-        <i class="fas fa-shield-halved"></i>
+    <div id="minibox-trigger" onclick="handleMiniboxClick()" style="display: none;">
+        <i class="fas fa-microchip"></i>
+        <div id="notif-dot"></div> </div>
+
+    <div id="minibox-ui" style="display: none;">
+        <div id="minibox-content">
+            </div>
     </div>
 
-    <div id="recovery-panel" style="display: none;">
-        <h4 style="margin:0 0 15px 0; font-size:12px; color:var(--gold);">RECOVERY REQUEST</h4>
-        <input type="text" id="req_file" placeholder="Filename.c" style="width:100%; background:#000; border:1px solid #333; color:white; padding:8px; border-radius:4px; margin-bottom:10px; font-family:'Fira Code';">
-        <button onclick="submitRecovery()" class="btn-transmit" style="width:100%;">SUBMIT TICKET</button>
+    <div id="claim-popup" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <i class="fas fa-key-skeleton gold-icon"></i>
+            <h3>RECOVERY COMPLETE</h3>
+            <p>Your asset has been moved to the primary cloud.</p>
+            <div class="key-container">
+                <span id="key-display">XXXX-XXXX</span>
+            </div>
+            <button onclick="closeClaimPopup()" class="btn-transmit">CONFIRM RECEIPT</button>
+        </div>
     </div>
 
-    <div id="admin-terminal">
-        <div id="term-output">Awaiting Command...</div>
-        <div style="display:flex; border-top:1px solid #222; padding-top:10px;">
-            <span style="color:var(--electric-green); margin-right:10px;">></span>
-            <input type="text" id="term-input" placeholder="/Recovery [user] [file.c]">
+    <div id="admin-terminal" style="display: none;">
+        <div id="term-output">SCE ARCHIVE TOOLS [v0.2.11]...</div>
+        <div style="display:flex; border-top:1px solid #222; padding-top:10px; align-items: center;">
+            <span style="color:var(--gold); margin-right:10px;">#</span>
+            <input type="text" id="term-input" placeholder="Enter Command...">
         </div>
     </div>
 
     <div class="container">
         <div id="auth-section">
             <div class="login-box">
-                <h2 id="bridge-label" style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 25px;">Connect to have access</h2>
+                <h2 id="bridge-label">IDENTITY VERIFICATION REQUIRED</h2>
                 
-                <div class="auth-buttons" style="display:flex; gap:10px; justify-content:center; margin-bottom: 20px;">
-                    <a href="/api/auth/github" id="ghBtn" class="btn-transmit disabled auth-btn">GitHub</a>
+                <div class="auth-buttons">
+                    <a href="/api/auth/github" id="ghBtn" class="btn-auth gh-btn disabled">
+                        <i class="fab fa-github"></i> GITHUB LOGIN
+                    </a>
                     
-                    <div class="guest-btn-wrapper" style="position:relative;">
-                        <a href="/api/auth/guest" id="guestBtn" class="btn-transmit auth-btn" style="background:white; color:black;">Guest</a>
-                        <div class="guest-note">Note: Guest access is read-only.</div>
+                    <div class="guest-btn-wrapper">
+                        <a href="/api/auth/guest" id="guestBtn" class="btn-auth guest-btn">
+                            <i class="fas fa-user-secret"></i> GUEST EXPLORER
+                        </a>
+                        <div class="guest-note">View-only mode enabled for Guests.</div>
                     </div>
                 </div>
 
                 <div class="tos-container">
                     <input type="checkbox" id="tosAgree"> 
-                    <label for="tosAgree" style="cursor:pointer; margin-left:8px; font-size:12px;">
-                        Accept <span class="legal-link" onclick="alert('TERMS: User assumes all responsibility for GitHub sync.')">Terms of Service</span> 
-                        & <span class="legal-link" onclick="alert('WARRANTY: No guarantee of data persistence.')">Warranty</span> to enable GitHub
+                    <label for="tosAgree">
+                        I accept the <span class="legal-link" onclick="alert('TERMS: User assumes all responsibility for data management.')">Terms</span> 
+                        & <span class="legal-link" onclick="alert('WARRANTY: No guarantee of data persistence.')">Warranty</span>
                     </label>
                 </div>
 
                 <div class="benefits-list">
-                    <div class="benefit-card expandable">
-                        <div class="card-title">
-                            <i class="fas fa-terminal"></i> <b>How to Code C</b>
-                        </div>
-                        <div class="card-expanded-content">
-                            <p>Start with <code>#include &lt;stdio.h&gt;</code>, define <code>int main()</code>, write your logic, and always return 0. Use a compiler like GCC to turn code into machine instructions.</p>
-                            <div class="example-pic">
-                                <img src="https://via.placeholder.com/400x150/000000/2ecc71?text=C+Structure+Example" alt="C Logic Example">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="benefit-card expandable">
-                        <div class="card-title">
-                            <i class="fas fa-laptop-code"></i> <b>Best Apps for C</b>
-                        </div>
-                        <div class="card-expanded-content">
-                            <p>VS Code (with C/C++ Extension), CLion, Dev-C++, Code::Blocks, or Xcode (Mac).</p>
-                            <div class="example-pic">
-                                <img src="https://via.placeholder.com/400x150/000000/2ecc71?text=IDE+Setup+Example" alt="App Example">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="keyword-footer">
-                        <p style="color:var(--electric-green); font-size:10px; letter-spacing:1px; margin-bottom:5px;">C KEYWORDS:</p>
-                        <code>
-                            auto break case char const continue default do double else enum extern float for goto if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while
-                        </code>
+                    <div class="benefit-card">
+                        <i class="fas fa-shield-virus"></i>
+                        <span>End-to-end encrypted backup of all .c source files.</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <div id="main-ui" style="display:none;">
-            <div id="profile-anchor" style="display:none;"></div>
+            <div id="profile-anchor"></div>
 
-            <div id="app-title" onclick="triggerSequenceGlow()" style="cursor:pointer;">
+            <div id="app-title">
                 <span class="glow-word">SCE</span>
                 <span class="glow-word">EXPLORER</span>
             </div>
 
             <div class="upload-box">
                 <label for="fileInput" class="custom-file-label">
-                    <span id="file-label-text">CHOOSE .C PROJECT</span>
+                    <i class="fas fa-cloud-arrow-up"></i>
+                    <span id="file-label-text">SELECT C SOURCE</span>
                 </label>
                 
-                <input type="file" id="fileInput" accept=".c,text/x-csrc,text/plain" style="display:none;" 
-                       onchange="if(this.files[0]) document.getElementById('file-label-text').innerText = this.files[0].name">
+                <input type="file" id="fileInput" accept=".c" style="display:none;">
                 
-                <button id="uploadBtn" class="btn-transmit" style="width:100%; margin-top:15px;">
-                    TRANSMIT TO CLOUD
+                <button id="uploadBtn" class="btn-transmit">
+                    INITIALIZE TRANSMISSION
                 </button>
             </div>
 
-            <h3 class="section-title">YOUR PROJECTS</h3>
+            <h3 class="section-title">SECURED ASSETS</h3>
             <div id="my-file-list" class="file-container"></div>
 
-            <h3 class="section-title">COMMUNITY CLOUD</h3>
+            <h3 class="section-title">REPOSITORY GLOBAL</h3>
             <div id="others-file-list" class="file-container"></div>
         </div>
     </div>
 
+    <script src="/core.js"></script>
+    <script src="/minibox.js"></script>
+    <script src="/terminal.js"></script>
     <script src="/client.js"></script>
 </body>
 </html>

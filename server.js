@@ -5,33 +5,36 @@ const passport = require('passport');
 const GitHubStrategy = require('passport-github2').Strategy;
 const path = require('path');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-// --- 1. PROXY TRUST (CRITICAL FOR RENDER) ---
-// Render uses a load balancer; this tells Express to trust the HTTPS headers it sends.
-app.set('trust proxy', 1);
-
-// --- 2. IMPORT MODULAR ROUTES ---
+// NOTE: Ensure these route files exist or are updated to v0.2.11 logic
 const authRoutes = require('./routes/auth');
 const cloudRoutes = require('./routes/cloud');
 const adminRoutes = require('./routes/admin');
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// --- 1. GLOBAL RECOVERY STATE (v0.2.11) ---
+// Temporary in-memory storage for the beta session
+global.adminTickets = []; 
+global.recoveryData = {}; 
+
+// --- 2. PROXY TRUST ---
+app.set('trust proxy', 1);
+
 // --- 3. ESSENTIAL MIDDLEWARE ---
 app.use(express.json());
-// Serves your index.html, style.css, and client.js from the /public folder
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// --- 4. SESSION CONFIGURATION (STABILIZED) ---
+// --- 4. SESSION CONFIGURATION ---
 app.use(session({
     secret: process.env.SESSION_SECRET || 'sce_beta_secret',
-    resave: true,                // Ensures session is updated in the store
-    saveUninitialized: false,    // Don't create sessions until something is stored
-    proxy: true,                 // Tells session middleware to trust the reverse proxy
+    resave: true,
+    saveUninitialized: false,
+    proxy: true,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production', // true if on Render (HTTPS)
-        sameSite: 'lax',         // Allows cookie to be sent after GitHub redirect
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: process.env.NODE_ENV === 'production', 
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000 
     } 
 }));
 
@@ -45,7 +48,6 @@ passport.use(new GitHubStrategy({
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     callbackURL: "https://shared-code-explorer.onrender.com/api/auth/github/callback" 
 }, (accessToken, refreshToken, profile, done) => {
-    // Identity Mapping
     const user = {
         username: profile.username,
         avatar: profile._json.avatar_url,
@@ -57,24 +59,87 @@ passport.use(new GitHubStrategy({
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
 
-// --- 7. CONNECT MODULAR ROUTES ---
+// --- 7. MINIBOX & RECOVERY API (v0.2.11 INTEGRATION) ---
+
+// [USER] Submit Ticket: Triggered by minibox.js -> submitRecovery()
+app.post('/api/admin/mail/send', (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const { username, filename } = req.body;
+    
+    const ticket = {
+        id: Date.now(),
+        username: username || req.user.username,
+        filename,
+        timestamp: new Date().toLocaleTimeString(),
+        status: 'pending'
+    };
+    
+    global.adminTickets.push(ticket);
+    console.log(`[MINIBOX] Recovery Ticket Queued: ${ticket.username} -> ${filename}`);
+    res.json({ success: true });
+});
+
+// [ADMIN] Fetch Tickets: Triggered by minibox.js -> renderMiniboxContent()
+app.get('/api/admin/tickets', (req, res) => {
+    if (req.isAuthenticated() && req.user.isAdmin) {
+        res.json(global.adminTickets);
+    } else {
+        res.status(403).send("Forbidden: Administrative Access Required");
+    }
+});
+
+// [ADMIN] Issue Recovery: Triggered by terminal.js -> /recover command
+app.post('/api/admin/restore', (req, res) => {
+    if (!req.isAuthenticated() || !req.user.isAdmin) return res.sendStatus(403);
+    
+    const { username, filename } = req.body;
+    const claimKey = `SCE-${Math.random().toString(36).toUpperCase().substring(2, 10)}`;
+    
+    global.recoveryData[username] = {
+        filename,
+        key: claimKey,
+        ready: true,
+        claimed: false,
+        processedAt: new Date().toLocaleTimeString()
+    };
+
+    // Auto-clear ticket from queue once processed
+    global.adminTickets = global.adminTickets.filter(t => t.username !== username);
+    
+    console.log(`[ADMIN] Recovery Protocol Executed for ${username}. Key: ${claimKey}`);
+    res.json({ success: true, claimKey });
+});
+
+// [USER] Polling Check: Triggered by minibox.js -> startRecoveryPolling()
+app.get('/api/user/check-recovery', (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    const data = global.recoveryData[req.user.username];
+    if (data && !data.claimed) {
+        res.json({ ready: true, key: data.key });
+    } else {
+        res.json({ ready: false });
+    }
+});
+
+// --- 8. CONNECT MODULAR ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/cloud', cloudRoutes);
 app.use('/api/admin', adminRoutes);
 
-// --- 8. FALLBACK ---
-// Supports Single Page Application behavior by serving index.html for all other routes
+// --- 9. FALLBACK ---
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- 9. SERVER START ---
+// --- 10. SERVER START ---
 app.listen(PORT, () => {
     console.log(`
-    -------------------------------------------------
-    APP : SCE v0.2.1 [BETA] :ACTIVATED
-    PORT: AUTO
-    MODE: ${process.env.NODE_ENV || 'in development'}
-    -------------------------------------------------
+    =================================================
+    CORE ENGINE : SCE v0.2.11 [BETA]
+    PORT        : ${PORT}
+    ADMIN_UID   : WAN234-sys
+    LIFECYCLE   : Handshake Listeners Active
+    =================================================
     `);
 });

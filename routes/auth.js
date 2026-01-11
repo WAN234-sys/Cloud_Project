@@ -3,7 +3,7 @@ const router = express.Router();
 const passport = require('passport');
 
 // --- 1. IDENTITY HANDSHAKE ---
-// This endpoint is called by init() in client.js to check if the user is logged in.
+// Called by init() in client.js to verify session status
 router.get('/user', (req, res) => {
     if (req.isAuthenticated()) {
         res.json({
@@ -20,22 +20,28 @@ router.get('/user', (req, res) => {
 });
 
 // --- 2. GITHUB AUTHENTICATION ---
-// Redirects user to GitHub for authorization
+// Redirects user to GitHub
 router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 
 // Handles the response back from GitHub
 router.get('/github/callback', 
     passport.authenticate('github', { failureRedirect: '/' }),
     (req, res) => {
-        // Successful login: sending user back to the main UI
-        res.redirect('/');
+        // CRITICAL FIX: Manually save the session before redirecting.
+        // This ensures the "Login Loop" is broken on high-latency hosts like Render.
+        req.session.save((err) => {
+            if (err) {
+                console.error("Session Save Error:", err);
+                return res.redirect('/');
+            }
+            res.redirect('/');
+        });
     }
 );
 
 // --- 3. GUEST LOGIC ---
-// Provides limited access without requiring a GitHub account
+// Provides read-only access without a GitHub account
 router.get('/guest', (req, res) => {
-    // We create a "Virtual Profile" for the guest so req.isAuthenticated() becomes true
     const guestProfile = {
         username: "Guest_Explorer",
         avatar: "https://github.com/identicons/guest.png",
@@ -43,13 +49,15 @@ router.get('/guest', (req, res) => {
         isGuest: true
     };
 
-    // Log the guest in manually using Passport
     req.login(guestProfile, (err) => {
         if (err) {
             console.error("Guest login error:", err);
             return res.redirect('/');
         }
-        res.redirect('/');
+        // Ensure guest session is saved before redirect
+        req.session.save(() => {
+            res.redirect('/');
+        });
     });
 });
 
@@ -57,8 +65,9 @@ router.get('/guest', (req, res) => {
 router.get('/logout', (req, res) => {
     req.logout((err) => {
         if (err) console.error("Logout error:", err);
-        req.session.destroy(() => {
-            res.clearCookie('connect.sid'); // Clears the session cookie
+        req.session.destroy((err) => {
+            if (err) console.error("Session destruction error:", err);
+            res.clearCookie('connect.sid'); // Clears the browser's session cookie
             res.redirect('/');
         });
     });

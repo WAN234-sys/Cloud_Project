@@ -2,7 +2,10 @@ let currentUser = null;
 let shieldClicks = 0;
 let shieldTimer;
 
-// --- IDENTITY HANDSHAKE ---
+/**
+ * --- IDENTITY HANDSHAKE ---
+ * Checks if a session exists and switches the UI from Login to App.
+ */
 async function init() {
     console.log("Initiating Identity Handshake...");
     try {
@@ -12,11 +15,11 @@ async function init() {
         console.log("Handshake Result:", currentUser);
 
         if (currentUser.authenticated) {
-            // Switch UI visibility
+            // Hide Login Box, Show Main App
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // Render Profile Header
+            // Render User Profile Header
             const profileAnchor = document.getElementById('profile-anchor');
             if (profileAnchor) {
                 profileAnchor.innerHTML = `
@@ -32,21 +35,25 @@ async function init() {
                     </div>`;
             }
             
-            // Activate Restore Glow
+            // Activate the "Green Glow" if an Admin restored a file for you
             if (currentUser.newRestoreAvailable) {
                 document.getElementById('recovery-shield').classList.add('glow');
             }
 
+            // Load the cloud projects
             fetchFiles();
         } else {
-            console.log("Handshake Failed: Not Authenticated.");
+            console.log("Handshake Failed: User is Guest/Unauthenticated.");
         }
     } catch (err) {
         console.error("Critical Handshake Error:", err);
     }
 }
 
-// --- CLOUD FILE FETCHING ---
+/**
+ * --- CLOUD FILE FETCHING ---
+ * Populates your projects and the community cloud.
+ */
 async function fetchFiles() {
     try {
         const res = await fetch('/api/cloud/files');
@@ -58,6 +65,7 @@ async function fetchFiles() {
         others.innerHTML = '';
 
         files.forEach(file => {
+            // Logic to check if the file belongs to the logged-in user
             const isMine = file.name.includes(`_${currentUser.username}_`);
             const row = document.createElement('div');
             row.className = 'file-row';
@@ -72,14 +80,18 @@ async function fetchFiles() {
                     <a href="${file.url}" target="_blank" style="color:var(--text-muted); text-decoration:none; font-size:12px;">View</a>
                     ${file.canManage ? `<button onclick="deleteFile('${file.name}')" style="background:var(--danger-red); border:none; color:white; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">Delete</button>` : ''}
                 </div>`;
-            if(isMine) my.appendChild(row); else others.appendChild(row);
+            
+            if(isMine) my.appendChild(row); 
+            else others.appendChild(row);
         });
     } catch (err) {
         console.error("Cloud fetch failed:", err);
     }
 }
 
-// --- UPLOAD LOGIC ---
+/**
+ * --- UPLOAD LOGIC ---
+ */
 const uploadBtn = document.getElementById('uploadBtn');
 if (uploadBtn) {
     uploadBtn.addEventListener('click', async () => {
@@ -91,15 +103,17 @@ if (uploadBtn) {
 
         const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
         if (res.status === 409) {
-            alert(await res.text());
+            alert(await res.text()); // File already exists error
         } else {
             fi.value = '';
-            fetchFiles();
+            fetchFiles(); // Refresh list
         }
     });
 }
 
-// --- DELETE LOGIC ---
+/**
+ * --- DELETE LOGIC ---
+ */
 async function deleteFile(name) {
     if (confirm("Permanently delete from primary? (Backup copy remains safe)")) {
         await fetch(`/api/cloud/files/${name}`, { method: 'DELETE' });
@@ -107,12 +121,15 @@ async function deleteFile(name) {
     }
 }
 
-// --- RECOVERY PANEL (TRIPLE CLICK SHIELD) ---
+/**
+ * --- RECOVERY PANEL (Triple Click Secret) ---
+ */
 function handleShieldClick() {
-    if (currentUser?.isAdmin) return; 
+    if (currentUser?.isAdmin) return; // Admins don't need the UI panel
     shieldClicks++;
     clearTimeout(shieldTimer);
     shieldTimer = setTimeout(() => shieldClicks = 0, 800);
+    
     if (shieldClicks === 3) {
         document.getElementById('recovery-panel').classList.toggle('open');
         document.getElementById('recovery-shield').classList.remove('glow');
@@ -123,16 +140,21 @@ function handleShieldClick() {
 async function submitRecovery() {
     const f = document.getElementById('req_file').value;
     if(!f) return alert("Enter filename");
+    
     await fetch('/api/admin/mail/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ username: currentUser.username, filename: f })
     });
+    
     alert("Recovery ticket sent to Admin logs.");
     document.getElementById('recovery-panel').classList.remove('open');
 }
 
-// --- ADMIN TERMINAL COMMANDS (Ctrl+Shift+Alt+R) ---
+/**
+ * --- ADMIN TERMINAL (Key Shortcut) ---
+ * Ctrl + Shift + Alt + R
+ */
 window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'R' && currentUser?.isAdmin) {
         const term = document.getElementById('admin-terminal');
@@ -147,22 +169,28 @@ if (termInput) {
         if (e.key === 'Enter') {
             const cmd = e.target.value.trim();
             const out = document.getElementById('term-output');
+            
             if (cmd.startsWith('/Recovery')) {
-                const parts = cmd.split(' ');
+                const parts = cmd.split(' '); // /Recovery user file.c
                 const res = await fetch('/api/admin/restore', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ username: parts[1], filename: parts[2] })
                 });
-                out.innerHTML += `<div>> ${await res.text()}</div>`;
-                fetchFiles();
+                const resultText = await res.text();
+                out.innerHTML += `<div style="color:var(--gold)">> ${resultText}</div>`;
+                fetchFiles(); // Update UI with restored file
             }
             e.target.value = '';
+            out.scrollTop = out.scrollHeight; // Auto-scroll terminal
         }
     });
 }
 
-// --- TOS TOGGLE (Fixes the Unclickable Button) ---
+/**
+ * --- TOS TOGGLE ---
+ * Unlocks the login buttons when the checkbox is ticked.
+ */
 const tosAgree = document.getElementById('tosAgree');
 if (tosAgree) {
     tosAgree.addEventListener('change', (e) => {
@@ -171,13 +199,15 @@ if (tosAgree) {
             if (isChecked) {
                 btn.classList.remove('disabled');
                 btn.style.pointerEvents = "auto";
+                btn.style.opacity = "1";
             } else {
                 btn.classList.add('disabled');
                 btn.style.pointerEvents = "none";
+                btn.style.opacity = "0.3";
             }
         });
     });
 }
 
-// AUTO-START
+// --- BOOTSTRAP ---
 init();

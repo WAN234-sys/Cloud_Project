@@ -5,11 +5,16 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Initialize Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const upload = multer({ storage: multer.memoryStorage() });
+
+// Memory storage is best for small .c files to ensure fast transmission
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
+});
+
 const ADMIN_USER = "WAN234-sys";
 
 // --- 1. LIST FILES ---
-// Fetches from 'modules' (Live) and checks 'backup' (Warranty)
 router.get('/files', async (req, res) => {
     try {
         const [primaryRes, backupRes] = await Promise.all([
@@ -24,7 +29,6 @@ router.get('/files', async (req, res) => {
         const files = primaryRes.data.map(f => {
             const parts = f.name.split('_');
             const owner = parts[1];
-            // Reconstruct original name in case it contains underscores
             const originalName = parts.slice(2).join('_');
             const expectedBackup = `warranty_${owner}_${originalName}`;
 
@@ -33,7 +37,6 @@ router.get('/files', async (req, res) => {
                 displayName: originalName,
                 isBackedUp: backupSet.has(expectedBackup),
                 url: `${process.env.SUPABASE_URL}/storage/v1/object/public/modules/uploads/${f.name}`,
-                // Permission Logic: Admins can manage everything, users can manage their own
                 canManage: (req.user?.username === ADMIN_USER) || 
                            (req.isAuthenticated() && owner === req.user.username)
             };
@@ -45,19 +48,22 @@ router.get('/files', async (req, res) => {
     }
 });
 
-// --- 2. UPLOAD PROJECT ---
-// Implements Dual-Bucket Mirroring
+// --- 2. UPLOAD PROJECT (FIXED FOR .C TRANSMISSION) ---
 router.post('/upload', upload.single('cfile'), async (req, res) => {
-    // Block Unauthenticated or Guest access (Read-only)
+    // 1. Check Auth
     if (!req.isAuthenticated() || req.user.isGuest) {
         return res.status(401).send('Write-access denied: Connect with GitHub for Warranty protection.');
+    }
+
+    // 2. Validate File Presence
+    if (!req.file) {
+        return res.status(400).send('Transmission failure: No file data received.');
     }
     
     const filename = req.file.originalname;
     const username = req.user.username;
 
     try {
-        // Safety: Prevent duplicate filenames for the same user
         const { data: existingFiles } = await supabase.storage.from('modules').list('uploads');
         const isDuplicate = existingFiles.some(f => f.name.includes(`_${username}_${filename}`));
 
@@ -69,21 +75,35 @@ router.post('/upload', upload.single('cfile'), async (req, res) => {
         const primaryPath = `uploads/${ts}_${username}_${filename}`;
         const backupPath = `archives/warranty_${username}_${filename}`;
 
-        // Dual-bucket write: Primary and Backup
-        await Promise.all([
-            supabase.storage.from('modules').upload(primaryPath, req.file.buffer),
-            supabase.storage.from('backup').upload(backupPath, req.file.buffer, { upsert: true })
+        /**
+         * FIX: Explicitly set Content-Type
+         * Supabase sometimes rejects .c files if the MIME type is 'application/octet-stream'
+         * We force it to 'text/plain' so it's readable and accepted.
+         */
+        const uploadOptions = {
+            contentType: 'text/plain',
+            upsert: true
+        };
+
+        console.log(`Transmitting: ${filename} for ${username}...`);
+
+        const uploadResults = await Promise.all([
+            supabase.storage.from('modules').upload(primaryPath, req.file.buffer, uploadOptions),
+            supabase.storage.from('backup').upload(backupPath, req.file.buffer, uploadOptions)
         ]);
+
+        // Check for specific Supabase errors in the array
+        const errors = uploadResults.filter(result => result.error);
+        if (errors.length > 0) throw errors[0].error;
 
         res.status(200).send('Project Transmitted to Secure Cloud');
     } catch (e) { 
-        console.error("Upload Error:", e.message);
-        res.status(500).send("Transmission failed: " + e.message); 
+        console.error("Upload Error Details:", e);
+        res.status(500).send("Transmission failed: " + (e.message || "Internal Storage Error")); 
     }
 });
 
 // --- 3. DELETE PROJECT ---
-// Removes from Primary bucket only; Backup (Warranty) remains untouched
 router.delete('/files/:name', async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -91,7 +111,6 @@ router.delete('/files/:name', async (req, res) => {
     const parts = fileName.split('_');
     const owner = parts[1];
 
-    // Security check: Only the owner or Admin can delete
     if (req.user.username !== owner && req.user.username !== ADMIN_USER) {
         return res.status(403).send("Unauthorized: Cannot delete secondary user assets.");
     }

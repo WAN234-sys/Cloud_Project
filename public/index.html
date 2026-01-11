@@ -42,7 +42,6 @@
                 
                 <div class="auth-buttons" style="display:flex; gap:10px; justify-content:center;">
                     <a href="/api/auth/github" id="ghBtn" class="btn-transmit disabled auth-btn">GitHub</a>
-                    
                     <div class="guest-btn-wrapper" style="position:relative;">
                         <a href="/api/auth/guest" class="btn-transmit disabled auth-btn" style="background:white; color:black;">Guest</a>
                         <div class="guest-note">Note: Guest access is read-only. No Warranty protection.</div>
@@ -62,10 +61,12 @@
 
             <div class="upload-box">
                 <label for="fileInput" class="custom-file-label">
-                    <span>UPLOAD PROJECT</span>
+                    <span id="file-label-text">CHOOSE .C PROJECT</span>
                 </label>
-                <input type="file" id="fileInput" accept=".c" style="display:none;">
-                <button id="uploadBtn" class="btn-transmit" style="width:100%; margin-top:15px;">TRANSMIT</button>
+                <input type="file" id="fileInput" accept=".c,text/x-csrc,text/plain" style="display:none;" 
+                       onchange="document.getElementById('file-label-text').innerText = this.files[0].name">
+                
+                <button id="uploadBtn" class="btn-transmit" style="width:100%; margin-top:15px;">TRANSMIT TO CLOUD</button>
             </div>
 
             <h3 class="section-title">YOUR PROJECTS</h3>

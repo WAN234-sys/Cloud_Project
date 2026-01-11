@@ -7,39 +7,42 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const ADMIN_USER = "WAN234-sys";
 
 /**
- * --- ADMIN RESTORE COMMAND (v0.2.11) ---
- * Logic: Downloads from 'backup' bucket -> Uploads to 'modules' bucket
- * Triggered by: terminal.js -> /recover [user] [file]
+ * --- ADMIN RESTORE COMMAND (v0.3.1) ---
+ * Logic: Downloads from 'backup' (Warranty Vault) -> Restores to 'modules' (Primary)
+ * Triggered by: terminal.js -> /recover [username]_[filename].c
  */
 router.post('/restore', async (req, res) => {
-    // 1. Authorization & Protocol Check
+    // 1. STRICTOR AUTHORIZATION
     if (!req.isAuthenticated() || req.user.username !== ADMIN_USER) {
-        return res.status(403).send("ACCESS DENIED: Unauthorized Terminal Command.");
+        console.warn(`[SECURITY] Unauthorized restore attempt by: ${req.user?.username || 'Guest'}`);
+        return res.status(403).send("ACCESS DENIED: Administrative Clearance Required.");
     }
 
     const { username, filename } = req.body;
     
+    // Validate Input
     if (!username || !filename) {
-        return res.status(400).send("ERROR: Missing parameters (User or Filename).");
+        return res.status(400).send("ERROR: Missing parameters (User/File). Check syntax.");
     }
 
-    // Path definitions matching your cloud structure
+    // Path definitions for Supabase structure
     const sourcePath = `archives/warranty_${username}_${filename}`;
     const destinationPath = `uploads/RESTORED_${Date.now()}_${username}_${filename}`;
 
     try {
-        console.log(`[RECOVERY] Protocol Alpha initiated for ${username}...`);
+        console.log(`[v0.3.1 RECOVERY] Initiating restore for ${username} -> ${filename}`);
 
-        // 2. Data Retrieval from Warranty Vault (backup bucket)
+        // 2. DATA RETRIEVAL (From Backup Bucket)
         const { data: blob, error: dlErr } = await supabase.storage
             .from('backup')
             .download(sourcePath);
 
         if (dlErr || !blob) {
-            throw new Error(`Asset not found in Warranty Vault.`);
+            console.error(`[RECOVERY ERROR] File not found: ${sourcePath}`);
+            throw new Error(`Asset [${filename}] not found in Warranty Vault.`);
         }
 
-        // 3. Asset Restoration to Primary Cloud (modules bucket)
+        // 3. ASSET RESTORATION (To Primary Bucket)
         const { error: ulErr } = await supabase.storage
             .from('modules')
             .upload(destinationPath, blob, { 
@@ -49,56 +52,61 @@ router.post('/restore', async (req, res) => {
 
         if (ulErr) throw ulErr;
 
-        // 4. GENERATE CLAIM KEY & UPDATE STATE
-        // Creates a key like "ABCD-1234"
+        // 4. GENERATE v0.3.1 CLAIM KEY
         const part1 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const part2 = Math.random().toString(36).substring(2, 6).toUpperCase();
         const claimKey = `${part1}-${part2}`;
 
-        // Update global state so minibox.js polling finds it
+        // Update global state for User Polling (v0.3.1 Memory Sync)
         global.recoveryData[username] = {
             filename: filename,
             key: claimKey,
             ready: true,
             claimed: false,
-            timestamp: new Date().toLocaleTimeString()
+            processedAt: new Date().toISOString() // Required for server.js cleanup task
         };
 
-        // Clear the ticket from the global queue (Handled)
+        // Auto-remove the handled ticket from the Admin Queue
         global.adminTickets = global.adminTickets.filter(t => t.username !== username);
 
-        console.log(`[RECOVERY SUCCESS] Key ${claimKey} issued to ${username}.`);
+        console.log(`[PROTOCOL SUCCESS] Recovery Key ${claimKey} assigned to ${username}.`);
 
-        // Return JSON to satisfy terminal.js output
+        // Return JSON to terminal.js
         res.status(200).json({
+            success: true,
             message: `Restoration Complete.`,
             claimKey: claimKey
         });
 
     } catch (e) {
         console.error(`[ADMIN ERROR]`, e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
 /**
- * --- TICKET FETCH (v0.2.11) ---
- * Provides the list for the Admin Minibox view
+ * --- TICKET FETCH (v0.3.1) ---
+ * Provides the current queue for the Admin Minibox view
  */
 router.get('/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.username === ADMIN_USER) {
         res.json(global.adminTickets);
     } else {
-        res.status(403).send("Unauthorized");
+        res.status(403).send("Forbidden");
     }
 });
 
 /**
  * --- INCOMING MAIL HANDLER ---
- * Receives tickets from User Minibox
+ * Receives tickets from the User Minibox
  */
 router.post('/mail/send', (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
+    
+    // Block Guests from requesting recovery
+    if (req.user.isGuest) {
+        return res.status(403).send("Guests cannot access Warranty services.");
+    }
 
     const { username, filename } = req.body;
     
@@ -107,11 +115,12 @@ router.post('/mail/send', (req, res) => {
         username: username || req.user.username,
         filename: filename,
         timestamp: new Date().toLocaleTimeString(),
-        status: "urgent"
+        status: "pending"
     };
 
     global.adminTickets.push(ticket);
-    res.status(200).json({ success: true, message: "Ticket logged." });
+    console.log(`[TICKET LOGGED] User ${ticket.username} requested ${filename}`);
+    res.status(200).json({ success: true, message: "Ticket added to queue." });
 });
 
 module.exports = router;

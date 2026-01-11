@@ -94,7 +94,15 @@ body {
     border: 1px solid #333; border-radius: 12px;
     padding: 20px; z-index: 11000; flex-direction: column;
     box-shadow: 0 0 100px rgba(0,0,0,0.8);
+    display: none;
 }
+
+.term-input-line {
+    display: flex; border-top: 1px solid #222; 
+    padding-top: 10px; align-items: center;
+}
+
+.term-prompt { color: var(--gold); margin-right: 10px; font-weight: bold; }
 
 #term-output {
     flex-grow: 1; overflow-y: auto; font-family: 'Fira Code', monospace;
@@ -106,10 +114,11 @@ body {
     font-family: 'Fira Code', monospace; outline: none; font-size: 14px;
 }
 
-/* --- APP TITLE ANIMATION --- */
+/* --- APP TITLE --- */
 #app-title {
     text-align: center; font-size: 32px; letter-spacing: 8px;
     margin-bottom: 30px; color: var(--gh-border); text-transform: uppercase;
+    cursor: pointer;
 }
 
 .glow-word { transition: 0.5s; display: inline-block; }
@@ -118,11 +127,10 @@ body {
     text-shadow: 0 0 15px var(--electric-green);
 }
 
-/* --- LOGIN & AUTH --- */
+/* --- LOGIN & AUTH REFINEMENTS --- */
 .login-box {
     background: var(--card-bg); border: 1px solid var(--gh-border);
     padding: 40px; border-radius: 20px; position: relative;
-    transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .auth-buttons { display: flex; flex-direction: column; gap: 15px; margin-top: 25px; }
@@ -136,19 +144,61 @@ body {
 .gh-btn { background: #24292e; color: white; border: 1px solid #444; }
 .guest-btn { background: white; color: black; }
 
-.gh-btn:hover:not(.disabled) { background: #333; transform: scale(1.02); }
+/* Guest Hover Note Logic */
+.guest-btn-wrapper { position: relative; }
+.guest-hover-note {
+    display: none;
+    position: absolute;
+    bottom: -22px; width: 100%;
+    text-align: center; font-size: 10px;
+    color: var(--text-muted);
+}
+.guest-btn-wrapper:hover .guest-hover-note { display: block; }
+
+/* Terms/Legal Styling */
+.tos-container { margin-top: 20px; text-align: center; font-size: 13px; }
+.tap-highlight {
+    font-weight: 800; color: var(--gold) !important;
+    text-decoration: underline double; cursor: pointer;
+}
+
+/* Benefit Box Requirement */
+.benefit-box {
+    margin-top: 25px; background: rgba(0,0,0,0.3);
+    border: 1px solid var(--gh-border); padding: 15px;
+    border-radius: 10px; font-size: 12px;
+}
+.app-support-list { margin-top: 8px; opacity: 0.8; }
+.app-support-list code { color: var(--electric-green); margin: 0 3px; }
+
+/* --- FILE UPLOAD BOX --- */
+.custom-file-box {
+    border: 2px dashed var(--gh-border);
+    background: rgba(46, 204, 113, 0.02);
+    padding: 40px; border-radius: 15px;
+    display: flex; flex-direction: column;
+    align-items: center; gap: 10px;
+    cursor: pointer; transition: 0.3s;
+}
+
+.custom-file-box:hover {
+    border-color: var(--electric-green);
+    background: rgba(46, 204, 113, 0.05);
+}
 
 /* --- FILE ROWS --- */
+.file-container { margin-bottom: 30px; }
+.section-title { font-size: 14px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 15px; }
+
 .file-row {
     background: #0d0c12; border: 1px solid var(--gh-border);
     padding: 18px; border-radius: 12px; margin-bottom: 12px;
     display: flex; justify-content: space-between; align-items: center;
-    transition: 0.2s;
 }
 
 .file-row.recovered-glow {
     border-color: var(--gold);
-    box-shadow: inset 0 0 10px rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
 }
 
 .btn-transmit {
@@ -157,11 +207,10 @@ body {
     cursor: pointer; text-transform: uppercase; transition: 0.3s;
 }
 
-.btn-transmit:hover { background: #fff; transform: translateY(-2px); }
-
 /* --- UTILS --- */
 .disabled { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
 .badge-admin { 
     background: var(--gold); color: black; font-size: 9px; 
     padding: 2px 5px; border-radius: 3px; vertical-align: middle; 
 }
+.view-only-tag { font-size: 10px; color: var(--text-muted); font-weight: bold; border: 1px solid #333; padding: 4px 8px; border-radius: 4px; }

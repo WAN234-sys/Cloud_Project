@@ -16,9 +16,9 @@
         <i class="fas fa-shield-halved"></i>
     </div>
 
-    <div id="recovery-panel">
+    <div id="recovery-panel" style="display: none;">
         <h4 style="margin:0 0 15px 0; font-size:12px; color:var(--gold);">RECOVERY REQUEST</h4>
-        <input type="text" id="req_file" placeholder="Filename.c">
+        <input type="text" id="req_file" placeholder="Filename.c" style="width:100%; background:#000; border:1px solid #333; color:white; padding:8px; border-radius:4px; margin-bottom:10px; font-family:'Fira Code';">
         <button onclick="submitRecovery()" class="btn-transmit" style="width:100%;">SUBMIT TICKET</button>
     </div>
 
@@ -33,18 +33,18 @@
     <div class="container">
         <div id="auth-section">
             <div class="login-box">
-                <h2 id="bridge-label">Connect to have access</h2>
+                <h2 id="bridge-label" style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 25px;">Connect to have access</h2>
                 
                 <div class="auth-buttons" style="display:flex; gap:10px; justify-content:center; margin-bottom: 20px;">
                     <a href="/api/auth/github" id="ghBtn" class="btn-transmit disabled auth-btn">GitHub</a>
                     
                     <div class="guest-btn-wrapper" style="position:relative;">
-                        <a href="/api/auth/guest" class="btn-transmit auth-btn" style="background:white; color:black;">Guest</a>
+                        <a href="/api/auth/guest" id="guestBtn" class="btn-transmit auth-btn" style="background:white; color:black;">Guest</a>
                         <div class="guest-note">Note: Guest access is read-only.</div>
                     </div>
                 </div>
 
-                <div class="tos-container" style="background:rgba(0,0,0,0.5); padding:15px; border-radius:10px; margin-bottom:20px; border:1px solid #222;">
+                <div class="tos-container">
                     <input type="checkbox" id="tosAgree"> 
                     <label for="tosAgree" style="cursor:pointer; margin-left:8px; font-size:12px;">
                         Accept <span class="legal-link" onclick="alert('TERMS: User assumes all responsibility for GitHub sync.')">Terms of Service</span> 
@@ -52,8 +52,7 @@
                     </label>
                 </div>
 
-                <div class="benefits-list" style="margin-top:30px; border-top:1px solid #222; padding-top:20px;">
-                    
+                <div class="benefits-list">
                     <div class="benefit-card expandable">
                         <div class="card-title">
                             <i class="fas fa-terminal"></i> <b>How to Code C</b>
@@ -91,7 +90,7 @@
         <div id="main-ui" style="display:none;">
             <div id="profile-anchor" style="display:none;"></div>
 
-            <div id="app-title" onclick="triggerSequenceGlow()" style="cursor:pointer; text-align:center; margin-bottom:20px;">
+            <div id="app-title" onclick="triggerSequenceGlow()" style="cursor:pointer;">
                 <span class="glow-word">SCE</span>
                 <span class="glow-word">EXPLORER</span>
             </div>

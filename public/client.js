@@ -4,7 +4,6 @@ let shieldTimer;
 
 /**
  * --- IDENTITY HANDSHAKE ---
- * Checks session and initializes UI once server confirms identity.
  */
 async function init() {
     console.log("Initiating Identity Handshake...");
@@ -12,27 +11,22 @@ async function init() {
         const res = await fetch('/api/auth/user');
         currentUser = await res.json();
         
-        console.log("Handshake Result:", currentUser);
-
         if (currentUser.authenticated) {
-            // 1. Switch UI visibility
             document.getElementById('auth-section').style.display = 'none';
             document.getElementById('main-ui').style.display = 'block';
             
-            // 2. Render Profile
-            renderProfile();
+            const recoveryPanel = document.getElementById('recovery-panel');
+            if (recoveryPanel) recoveryPanel.style.display = 'block';
 
-            // 3. Bind Action Listeners
+            renderProfile();
             setupActionListeners();
 
-            // 4. Recovery Shield Glow
             if (currentUser.newRestoreAvailable) {
                 document.getElementById('recovery-shield').classList.add('glow');
             }
 
             fetchFiles();
         } else {
-            // Bind the logic that handles the GitHub lock vs Guest unlock
             setupTOSListener();
         }
     } catch (err) {
@@ -41,99 +35,108 @@ async function init() {
 }
 
 /**
+ * --- FUNNY AUDIO FEEDBACK ---
+ * Synthesizes a 1.5s "Digital Whoop" using a square wave.
+ */
+function playSuccessSound() {
+    const context = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    
+    osc.type = 'square'; 
+    osc.frequency.setValueAtTime(100, context.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, context.currentTime + 1.2);
+    
+    gain.gain.setValueAtTime(0.05, context.currentTime); 
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 1.5);
+    
+    osc.connect(gain);
+    gain.connect(context.destination);
+    
+    osc.start();
+    osc.stop(context.currentTime + 1.5);
+}
+
+/**
  * --- TOS TOGGLE LOGIC ---
- * Modified: GitHub requires agreement, Guest is always accessible.
  */
 function setupTOSListener() {
     const tosAgree = document.getElementById('tosAgree');
     const ghBtn = document.getElementById('ghBtn');
-    
-    // Ensure Guest button is always active regardless of agreement
-    const guestBtns = document.querySelectorAll('.auth-btn:not(#ghBtn)');
-    guestBtns.forEach(btn => {
-        btn.classList.remove('disabled');
-        btn.style.pointerEvents = "auto";
-        btn.style.opacity = "1";
-    });
+    const guestBtn = document.getElementById('guestBtn');
 
-    if (tosAgree && ghBtn) {
+    if (tosAgree) {
         tosAgree.onchange = (e) => {
             const isChecked = e.target.checked;
-            
-            // Toggle GitHub button only
-            ghBtn.style.pointerEvents = isChecked ? "auto" : "none";
-            ghBtn.style.opacity = isChecked ? "1" : "0.3";
-            
-            if (isChecked) {
-                ghBtn.classList.remove('disabled');
-            } else {
-                ghBtn.classList.add('disabled');
+            if (ghBtn) {
+                ghBtn.style.pointerEvents = isChecked ? "auto" : "none";
+                ghBtn.style.opacity = isChecked ? "1" : "0.3";
+                isChecked ? ghBtn.classList.remove('disabled') : ghBtn.classList.add('disabled');
+            }
+            if (guestBtn) {
+                guestBtn.style.pointerEvents = isChecked ? "none" : "auto";
+                guestBtn.style.opacity = isChecked ? "0.3" : "1";
+                isChecked ? guestBtn.classList.add('disabled') : guestBtn.classList.remove('disabled');
             }
         };
     }
 }
 
 /**
- * --- UI EFFECTS: RANDOM SEQUENCE GLOW ---
- */
-function triggerSequenceGlow() {
-    const words = Array.from(document.querySelectorAll('.glow-word'));
-    if (words.length === 0) return;
-
-    const shuffledWords = words.sort(() => Math.random() - 0.5);
-    const delayBetweenWords = 400; 
-
-    shuffledWords.forEach((word, index) => {
-        setTimeout(() => {
-            word.classList.add('active');
-        }, index * delayBetweenWords);
-    });
-
-    const totalDisplayTime = (words.length * delayBetweenWords) + 2000; 
-    
-    setTimeout(() => {
-        words.forEach(word => word.classList.remove('active'));
-    }, totalDisplayTime);
-}
-
-/**
- * --- BUTTON BINDING LOGIC ---
+ * --- UPLOAD LOGIC WITH PROGRESS, SPEED & FLASH ---
  */
 function setupActionListeners() {
     const uploadBtn = document.getElementById('uploadBtn');
     const fileInput = document.getElementById('fileInput');
 
     if (uploadBtn) {
-        uploadBtn.onclick = async () => {
-            if (!fileInput.files[0]) {
-                alert("Select a .c file first.");
-                return;
-            }
+        uploadBtn.onclick = () => {
+            if (!fileInput.files[0]) return alert("Select a .c file first.");
 
-            uploadBtn.innerText = "TRANSMITTING...";
-            uploadBtn.style.opacity = "0.5";
-            uploadBtn.disabled = true;
-
+            const file = fileInput.files[0];
             const fd = new FormData();
-            fd.append('cfile', fileInput.files[0]);
+            fd.append('cfile', file);
 
-            try {
-                const res = await fetch('/api/cloud/upload', { method: 'POST', body: fd });
-                if (res.ok) {
-                    fileInput.value = '';
-                    document.getElementById('file-label-text').innerText = "CHOOSE .C PROJECT";
-                    fetchFiles();
-                } else {
-                    const errText = await res.text();
-                    alert("Cloud Error: " + errText);
+            uploadBtn.disabled = true;
+            uploadBtn.style.opacity = "0.5";
+            
+            const xhr = new XMLHttpRequest();
+            const startTime = Date.now();
+
+            xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    const percent = Math.round((event.loaded / event.total) * 100);
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const speed = (event.loaded / (1024 * 1024) / elapsed).toFixed(2);
+                    uploadBtn.innerText = `TRANSMITTING: ${percent}% (${speed} MB/s)`;
                 }
-            } catch (err) {
-                alert("Connection failed.");
-            } finally {
-                uploadBtn.innerText = "TRANSMIT TO CLOUD";
-                uploadBtn.style.opacity = "1";
+            };
+
+            xhr.onload = () => {
+                if (xhr.status === 200) {
+                    // Visual Flash Handshake
+                    uploadBtn.style.background = "#fff";
+                    uploadBtn.style.boxShadow = "0 0 30px #fff";
+                    playSuccessSound();
+
+                    setTimeout(() => {
+                        uploadBtn.style.background = "var(--electric-green)";
+                        uploadBtn.style.boxShadow = "none";
+                        uploadBtn.innerText = "TRANSMIT TO CLOUD";
+                        fileInput.value = '';
+                        document.getElementById('file-label-text').innerText = "CHOOSE .C PROJECT";
+                        fetchFiles();
+                    }, 1500); // Sync with 1.5s sound
+                } else {
+                    alert("Cloud Error: " + xhr.responseText);
+                    uploadBtn.innerText = "TRANSMIT TO CLOUD";
+                }
                 uploadBtn.disabled = false;
-            }
+                uploadBtn.style.opacity = "1";
+            };
+
+            xhr.open('POST', '/api/cloud/upload', true);
+            xhr.send(fd);
         };
     }
 }
@@ -146,7 +149,7 @@ function renderProfile() {
     if (profileAnchor) {
         profileAnchor.style.display = 'block';
         profileAnchor.innerHTML = `
-            <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:20px;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
                 <div class="user-icon" style="color:var(--electric-green); border:1px solid #333; padding:6px 10px; border-radius:4px; background:#0d1117;">
                     <i class="fas fa-code"></i>
                 </div>
@@ -176,13 +179,15 @@ async function fetchFiles() {
 
         files.forEach(file => {
             const isMine = file.name.includes(`_${currentUser.username}_`);
+            const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            
             const row = document.createElement('div');
             row.className = 'file-row';
             row.innerHTML = `
                 <div>
                     <div style="font-family:'Fira Code'; font-size:14px;">${file.displayName}</div>
-                    <div style="font-size:10px; color:${file.isBackedUp ? 'var(--electric-green)' : '#444'}">
-                        ${file.isBackedUp ? '[PROTECTED BY WARRANTY]' : '[UNPROTECTED]'}
+                    <div style="font-size:10px; color:var(--text-muted);">
+                        ${sizeMB} MB | ${file.isBackedUp ? '<span style="color:var(--electric-green)">[PROTECTED BY WARRANTY]</span>' : '[UNPROTECTED]'}
                     </div>
                 </div>
                 <div style="display:flex; gap:15px; align-items:center;">
@@ -213,7 +218,6 @@ function handleShieldClick() {
     shieldClicks++;
     clearTimeout(shieldTimer);
     shieldTimer = setTimeout(() => shieldClicks = 0, 800);
-    
     if (shieldClicks === 3) {
         document.getElementById('recovery-panel').classList.toggle('open');
         document.getElementById('recovery-shield').classList.remove('glow');
@@ -224,13 +228,11 @@ function handleShieldClick() {
 async function submitRecovery() {
     const f = document.getElementById('req_file').value;
     if(!f) return alert("Enter filename");
-    
     await fetch('/api/admin/mail/send', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ username: currentUser.username, filename: f })
     });
-    
     alert("Recovery ticket sent to Admin logs.");
     document.getElementById('recovery-panel').classList.remove('open');
 }
@@ -239,10 +241,11 @@ async function submitRecovery() {
  * --- ADMIN TERMINAL ---
  */
 window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.altKey && e.key === 'R' && currentUser?.isAdmin) {
+    if (e.ctrlKey && e.shiftKey && e.altKey && e.code === 'KeyR' && currentUser?.isAdmin) {
         const term = document.getElementById('admin-terminal');
-        term.style.display = term.style.display === 'flex' ? 'none' : 'flex';
-        if(term.style.display === 'flex') document.getElementById('term-input').focus();
+        const isHidden = term.style.display === 'none' || term.style.display === '';
+        term.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden) document.getElementById('term-input').focus();
     }
 });
 
@@ -270,5 +273,4 @@ if (termInput) {
     });
 }
 
-// BOOTSTRAP
 init();

@@ -1,16 +1,27 @@
 <nav class="system-nav">
     <div class="nav-container">
         <div class="nav-left">
-            <div class="status-indicator" id="nav-status-box">
-                <div class="status-pulse" id="nav-pulse"></div>
-                <span class="status-label" id="nav-status-text">SYSTEM_ACTIVE</span>
+            <div id="profile-anchor">
+                <div class="nav-placeholder">
+                    <i class="fas fa-circle-notch fa-spin"></i>
+                </div>
             </div>
-            <div class="version-tag">SCE_v1.0.1_BETA</div>
+            
+            <div class="status-indicator">
+                <div class="status-pulse"></div>
+                <span class="status-label">SYSTEM_ACTIVE</span>
+            </div>
         </div>
 
-        <div id="profile-anchor" class="nav-right">
-            <div class="nav-placeholder">
-                <i class="fas fa-spinner fa-spin"></i> SYNCHRONIZING_IDENTITY...
+        <div class="nav-center">
+            <h1 class="branding-title">SC EXPLORER</h1>
+            <div class="version-tag">BETA_v1.0.3</div>
+        </div>
+
+        <div class="nav-right">
+            <div class="ai-interaction-group" onclick="handleAiLogic()">
+                <div id="noa-pulse" class="white-dot"></div>
+                <i class="fas fa-robot"></i>
             </div>
         </div>
     </div>
@@ -23,160 +34,121 @@
 </nav>
 
 <style>
-/* Navigation Specific Architecture - SC EXPLORER */
+/* Navigation Logic - Synchronized White & Electric Green Theme */
 .system-nav {
     width: 100%;
-    background: rgba(13, 17, 23, 0.85); /* Increased transparency for glass effect */
-    border-bottom: 1px solid var(--gh-border, #30363d);
+    background: rgba(13, 17, 23, 0.9);
+    border-bottom: 1px solid #30363d;
     position: sticky;
     top: 0;
     z-index: 1000;
     backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
 }
 
 .nav-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 10px 25px;
+    max-width: 100%;
+    margin: 0;
+    padding: 8px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
+/* Left Align: 32px PFP Anchor */
 .nav-left {
     display: flex;
     align-items: center;
     gap: 15px;
+    flex: 1; /* Pushes content to fill space */
 }
 
+/* Center Align: SC EXPLORER Branding */
+.nav-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.branding-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    color: #ffffff;
+    margin: 0;
+    font-weight: 900;
+}
+
+.nav-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+}
+
+/* Status Indicators */
 .status-indicator {
     display: flex;
     align-items: center;
-    gap: 8px;
-    background: rgba(46, 204, 113, 0.05);
-    padding: 5px 12px;
-    border-radius: 4px; /* Squared off for industrial feel */
-    border: 1px solid rgba(46, 204, 113, 0.2);
-    transition: 0.3s ease;
+    gap: 6px;
+    background: rgba(0, 255, 65, 0.05);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 255, 65, 0.2);
 }
 
 .status-pulse {
-    width: 7px;
-    height: 7px;
-    background: var(--electric-green, #00ff41);
+    width: 6px;
+    height: 6px;
+    background: #00ff41; /* Electric Green */
     border-radius: 50%;
-    box-shadow: 0 0 10px var(--electric-green);
-    animation: pulse 2s infinite;
+    box-shadow: 0 0 8px #00ff41;
+    animation: sce-pulse 2s infinite;
 }
 
 .status-label {
-    font-size: 10px;
-    font-family: 'Fira Code', monospace;
-    color: var(--electric-green, #00ff41);
-    letter-spacing: 1.5px;
-    font-weight: 600;
-}
-
-.version-tag {
     font-size: 9px;
-    color: var(--text-muted, #8b949e);
     font-family: 'Fira Code', monospace;
+    color: #00ff41;
     letter-spacing: 1px;
 }
 
-/* Notification Strip - Recovery Gold */
+/* Recovery Gold Banner */
 .notification-strip {
-    background: var(--gold, #ffd700);
+    background: #ffd700;
     color: #000;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
     text-align: center;
-    padding: 8px;
-    font-family: 'Space Grotesk', sans-serif;
-    letter-spacing: 1px;
+    padding: 6px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 15px;
-    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
-    animation: slideDown 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+    gap: 10px;
+    animation: slideDown 0.4s ease-out;
 }
 
-.notif-close {
-    cursor: pointer;
-    font-size: 18px;
-    font-weight: bold;
-    padding: 0 10px;
-    transition: 0.2s;
-}
+.notif-close { cursor: pointer; font-weight: bold; }
 
-.notif-close:hover { transform: scale(1.2); }
-
-/* Profile Card Styling - Integrated with core.js renderProfile() */
-.profile-card {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: 0.2s;
-}
-
+/* 32px PFP Profile Rendering */
 .nav-avatar {
-    width: 34px;
-    height: 34px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    border: 2px solid var(--gh-border);
-    background: #000;
-    object-fit: cover;
+    border: 1.5px solid #30363d;
+    transition: transform 0.2s;
 }
 
-.profile-info {
-    display: flex;
-    flex-direction: column;
-}
+.nav-avatar:hover { transform: scale(1.1); }
 
-.nav-username {
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1.2;
-    font-family: 'Space Grotesk', sans-serif;
-}
-
-.badge-admin {
-    font-size: 8px;
-    background: var(--gold);
-    color: #000;
-    padding: 1px 4px;
-    border-radius: 3px;
-    margin-left: 5px;
-    vertical-align: middle;
-}
-
-.nav-logout {
-    font-size: 9px;
-    color: var(--text-muted);
-    text-decoration: none;
-    text-transform: uppercase;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
-}
-
-.nav-logout:hover {
-    color: var(--del-red, #ff4d4d);
-    text-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
-}
-
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.5; }
-    100% { transform: scale(1); opacity: 1; }
+@keyframes sce-pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
 }
 
 @keyframes slideDown {
-    from { transform: translateY(-100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from { transform: translateY(-100%); }
+    to { transform: translateY(0); }
 }
 </style>

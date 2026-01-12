@@ -1,14 +1,18 @@
 <div id="minibox-container" class="minibox-shell">
     
     <div class="minibox-header">
-        <span class="status-text"><i class="fas fa-microchip"></i> SYSTEM_MINIBOX v1.0.1</span>
-        <div id="notif-dot" class="pulse-red"></div>
+        <span class="status-text">
+            <i class="fas fa-microchip"></i> SYSTEM_MINIBOX v1.0.3
+        </span>
+        <div id="minibox-pulse" class="pulse-active"></div>
     </div>
 
     <div id="verify-box" class="minibox-section">
         <div class="divider-gold"></div>
         <h4 class="section-label">ASSET_RECOVERY_PROTOCOL</h4>
-        <p class="section-desc">Input high-entropy claim key to reconstitute your .c source file from the vault.</p>
+        <p class="section-desc">
+            Input the high-entropy claim key (XXXX-XXXX) provided by the Admin to reconstitute your asset.
+        </p>
         
         <div class="input-wrapper">
             <input type="text" id="verify_key_input" placeholder="XXXX-XXXX" class="mini-input">
@@ -19,156 +23,143 @@
         <div class="divider-gold"></div>
     </div>
 
+    <div id="request-section" class="minibox-section" style="display: none;">
+        <h4 class="section-label">NEW_RECOVERY_REQUEST</h4>
+        <input type="text" id="req-filename" placeholder="Target filename..." class="mini-input">
+        <button onclick="submitRecoveryRequest()" class="btn-request">SEND TO ADMIN</button>
+    </div>
+
     <div class="minibox-actions">
-        <button id="admin-trigger" class="btn-terminal" style="display: none;" onclick="toggleAdminTerminal()">
-            <i class="fas fa-terminal"></i> ADMIN_BRIDGE
+        <button id="admin-trigger" class="btn-terminal" style="display: none;" onclick="Core.toggleTerminal()">
+            <i class="fas fa-terminal"></i> BRIDGE
         </button>
 
         <div id="minibox-identity" class="identity-report">
             <small>SESSION_STATUS:</small>
-            <span id="mini-user-display">PENDING_SYNC...</span>
+            <span id="mini-user-display">SYNCING...</span>
         </div>
     </div>
 </div>
 
 <style>
-/* Minibox Component Specific Styles - SC EXPLORER THEME */
+/* Minibox v1.0.3 - Synchronized Theme */
 .minibox-shell {
-    background: var(--card-bg, #0d1117);
-    border: 1px solid var(--gh-border, #30363d);
-    border-radius: 12px;
-    padding: 18px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
-    margin-top: 20px;
+    background: #0d1117; /* GitHub Dark */
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
     font-family: 'Fira Code', monospace;
-    border-left: 3px solid var(--electric-green, #00ff41);
+    border-left: 4px solid #00ff41; /* Electric Green */
+    width: 280px;
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9999;
 }
 
 .minibox-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
 }
 
 .status-text {
-    font-size: 10px;
-    color: var(--electric-green, #00ff41);
-    letter-spacing: 1.5px;
+    font-size: 9px;
+    color: #00ff41;
+    letter-spacing: 1px;
     font-weight: bold;
+    text-transform: uppercase;
 }
 
-/* Dynamic Notification Dot */
-.pulse-red {
-    width: 10px;
-    height: 10px;
-    background: #ff4d4d;
+/* Notification Pulse */
+.pulse-active {
+    width: 8px;
+    height: 8px;
+    background: #00ff41;
     border-radius: 50%;
-    box-shadow: 0 0 10px #ff4d4d;
-    animation: pulse-ring 2s infinite;
-}
-
-.pulse-green {
-    width: 10px;
-    height: 10px;
-    background: var(--electric-green);
-    border-radius: 50%;
-    box-shadow: 0 0 10px var(--electric-green);
+    box-shadow: 0 0 10px #00ff41;
+    animation: sce-pulse 2s infinite;
 }
 
 .minibox-section {
-    background: rgba(255, 215, 0, 0.03);
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 15px;
-    border: 1px dashed rgba(255, 215, 0, 0.2);
+    background: rgba(0, 255, 65, 0.02);
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(48, 54, 61, 0.5);
 }
 
 .section-label {
-    color: var(--gold, #ffd700);
-    font-size: 10px;
-    margin: 5px 0;
+    color: #ffd700; /* Gold for security headers */
+    font-size: 9px;
+    margin-bottom: 4px;
     letter-spacing: 1px;
 }
 
 .section-desc {
-    font-size: 9px;
-    color: var(--text-muted, #8b949e);
-    line-height: 1.5;
+    font-size: 8.5px;
+    color: #8b949e;
+    line-height: 1.4;
+    margin-bottom: 8px;
 }
 
 .mini-input {
     width: 100%;
     background: #000;
-    border: 1px solid var(--gh-border);
-    color: var(--gold);
-    font-size: 16px;
+    border: 1px solid #30363d;
+    color: #ffd700;
+    font-size: 14px;
     text-align: center;
-    padding: 10px;
-    margin: 12px 0;
+    padding: 8px;
     border-radius: 4px;
-    text-transform: uppercase;
     outline: none;
-    transition: 0.3s;
-}
-
-.mini-input:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+    margin-bottom: 8px;
 }
 
 .btn-claim {
     width: 100%;
-    background: var(--gold);
+    background: #ffd700;
     color: #000;
     border: none;
-    padding: 12px;
-    font-weight: 900;
-    font-size: 11px;
+    padding: 10px;
+    font-weight: 800;
+    font-size: 10px;
     cursor: pointer;
     border-radius: 4px;
-    transition: 0.3s;
-    text-transform: uppercase;
+    transition: 0.2s;
 }
 
 .btn-claim:hover {
     background: #fff;
-    box-shadow: 0 0 20px var(--gold);
-    transform: translateY(-1px);
-}
-
-.minibox-actions {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-top: 10px;
+    box-shadow: 0 0 15px #ffd700;
 }
 
 .identity-report {
-    display: flex;
-    flex-direction: column;
+    border-left: 2px solid #00ff41;
+    padding-left: 8px;
     font-size: 9px;
-    color: var(--text-muted);
-    border-left: 2px solid var(--electric-green);
-    padding-left: 12px;
+    color: #8b949e;
 }
 
 #mini-user-display {
-    color: var(--text-main, #c9d1d9);
+    color: #c9d1d9;
+    display: block;
     font-weight: bold;
-    font-size: 11px;
 }
 
 .divider-gold {
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-    margin: 8px 0;
-    opacity: 0.3;
+    background: linear-gradient(90deg, transparent, #ffd700, transparent);
+    margin: 6px 0;
+    opacity: 0.2;
 }
 
-@keyframes pulse-ring {
-    0% { transform: scale(0.95); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.7; }
-    100% { transform: scale(0.95); opacity: 1; }
+@keyframes sce-pulse {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+    100% { opacity: 1; transform: scale(1); }
 }
 </style>

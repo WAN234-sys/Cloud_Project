@@ -23,7 +23,7 @@
                 to the <span class="vault-tag">Active-Repository</span>. Visual status upgraded to 
                 <span class="gold-text">★ RECOVERED</span>.
             </p>
-            <button class="btn-transmit btn-close-modal" onclick="closeClaimPopup()">
+            <button class="btn-close-modal" onclick="closeClaimPopup()">
                 TERMINATE_PROTOCOL
             </button>
         </div>
@@ -31,13 +31,12 @@
 </div>
 
 <style>
-/* Modal Architecture - SC EXPLORER v1.0.1 */
+/* Modal Specific Design - SC EXPLORER Edition */
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(2, 4, 8, 0.95);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    background: rgba(2, 4, 8, 0.96); /* Darker backdrop for focus */
+    backdrop-filter: blur(12px);
     z-index: 10000;
     display: flex;
     align-items: center;
@@ -47,147 +46,132 @@
 
 .modal-box {
     background: #0d1117;
-    border: 1px solid var(--gold, #ffd700);
-    border-radius: 12px; /* Matching the industrial look */
-    padding: 45px;
+    border: 1.5px solid #ffd700; /* Gold Border */
+    border-radius: 8px;
+    padding: 40px;
     max-width: 440px;
     width: 100%;
     text-align: center;
-    box-shadow: 0 0 60px rgba(255, 215, 0, 0.1);
+    box-shadow: 0 0 50px rgba(255, 215, 0, 0.15);
     position: relative;
-    overflow: hidden;
-    animation: modalSlideIn 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Icon Aesthetics */
 .icon-pulse {
-    width: 80px;
-    height: 80px;
+    width: 70px;
+    height: 70px;
     background: rgba(255, 215, 0, 0.05);
-    border: 1px solid var(--gold);
+    border: 1px solid #ffd700;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 25px;
-    font-size: 30px;
-    color: var(--gold);
-    animation: pulseGold 2.5s infinite;
+    margin: 0 auto 20px;
+    font-size: 28px;
+    color: #ffd700;
+    animation: pulseGold 2s infinite;
 }
 
 .modal-title {
-    font-size: 20px;
-    font-weight: 800;
-    letter-spacing: 4px;
-    color: #fff;
     font-family: 'Space Grotesk', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #ffffff;
 }
 
 .modal-subtitle {
     font-size: 9px;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    margin-top: 10px;
-    text-transform: uppercase;
+    color: #8b949e;
+    letter-spacing: 1.5px;
+    margin-top: 8px;
 }
 
-/* Key Display Area */
+/* The Key Display Box */
 .key-container {
     background: #010409;
     border: 1px dashed rgba(255, 215, 0, 0.4);
-    border-radius: 8px;
-    padding: 30px 20px;
-    margin: 35px 0;
+    border-radius: 6px;
+    padding: 25px;
+    margin: 30px 0;
     cursor: pointer;
-    transition: all 0.3s ease;
+    position: relative;
+    transition: 0.3s;
 }
 
 .key-container:hover {
+    background: rgba(255, 215, 0, 0.03);
     border-style: solid;
-    border-color: var(--gold);
-    background: rgba(255, 215, 0, 0.02);
-}
-
-.label-blink {
-    display: block;
-    font-size: 10px;
-    color: var(--gold);
-    font-weight: bold;
-    margin-bottom: 12px;
-    animation: blinker 2s linear infinite;
+    border-color: #ffd700;
 }
 
 #claim-key-display {
     font-family: 'Fira Code', monospace;
-    font-size: 22px;
-    color: #fff;
-    letter-spacing: 3px;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+    font-size: 20px;
+    color: #ffffff;
+    letter-spacing: 2px;
+}
+
+.label-blink {
+    font-size: 9px;
+    color: #ffd700;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 10px;
+    animation: sce-blink 1.5s infinite;
 }
 
 .copy-hint {
-    font-size: 9px;
+    font-size: 8px;
     color: #484f58;
-    margin-top: 15px;
-    font-weight: 600;
+    margin-top: 12px;
+    text-transform: uppercase;
 }
 
 #copy-success-tip {
-    position: absolute;
-    bottom: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 10px;
-    color: var(--electric-green);
-    font-weight: 900;
-}
-
-/* Vault Theming */
-.vault-tag {
-    color: #58a6ff;
-    font-family: 'Fira Code', monospace;
+    font-size: 9px;
+    color: #00ff41; /* Success Green */
     font-weight: bold;
+    margin-top: 10px;
 }
 
-.gold-text { color: var(--gold); font-weight: bold; }
+/* Text Theming */
+.vault-tag { color: #58a6ff; font-family: var(--code-font); }
+.gold-text { color: #ffd700; font-weight: bold; }
 
 .footer-note {
     font-size: 12px;
-    color: var(--text-muted);
-    line-height: 1.8;
-    margin-bottom: 30px;
+    color: #8b949e;
+    line-height: 1.6;
+    margin-bottom: 25px;
 }
 
 .btn-close-modal {
     width: 100%;
-    background: var(--gold);
+    background: #ffd700;
     color: #000;
-    font-weight: 800;
-    padding: 15px;
     border: none;
+    padding: 12px;
+    font-weight: 900;
+    font-size: 11px;
+    letter-spacing: 2px;
     border-radius: 4px;
     cursor: pointer;
     transition: 0.2s;
 }
 
-.btn-close-modal:hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
-}
+.btn-close-modal:hover { filter: brightness(1.2); }
 
 /* Keyframes */
 @keyframes modalSlideIn {
-    from { transform: scale(0.9) translateY(40px); opacity: 0; }
-    to { transform: scale(1) translateY(0); opacity: 1; }
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 @keyframes pulseGold {
-    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.3); }
-    70% { box-shadow: 0 0 0 20px rgba(255, 215, 0, 0); }
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
     100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
-}
-
-@keyframes blinker {
-    50% { opacity: 0.4; }
 }
 </style>

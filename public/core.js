@@ -1,24 +1,17 @@
-/** SCE v1.0.1 [BETA] - CORE ENGINE & IDENTITY HANDSHAKE **/
+/** SCE v1.0.3 [BETA] - CORE ENGINE & IDENTITY HANDSHAKE **/
 
 let currentUser = null;
 let recoveryCheckInterval = null;
-let titleClicks = 0; 
 
-/**
- * --- 1. BOOT SEQUENCE ---
- * FIXED: Updated fetch path to '/api/auth/status' to match synchronized auth.js.
- */
 async function init() {
-    console.log("%c[CORE] Initiating SC EXPLORER v1.0.1 Handshake...", "color: #3498db; font-weight: bold;");
+    console.log("%c[CORE] Initiating SCE v1.0.3 Handshake...", "color: #2ea44f; font-weight: bold;");
     
     try {
-        // Match the endpoint in routes/auth.js
         const res = await fetch('/api/auth/status');
         currentUser = await res.json();
-        
-        // Sync Global State for other scripts (NoA.js, client.js, terminal.js)
         window.currentUser = currentUser;
 
+        // Route state based on Identity
         if (currentUser.authenticated && !currentUser.isGuest) {
             handleAuthenticatedState();
         } else if (currentUser.isGuest) {
@@ -28,7 +21,6 @@ async function init() {
         }
 
         applyBranding();
-        setupTitleSecret(); 
 
     } catch (err) {
         console.error("[CORE CRITICAL] Handshake Protocol Failed:", err);
@@ -37,87 +29,72 @@ async function init() {
 }
 
 /**
- * --- 2. AUTHENTICATED STATE LOGIC ---
+ * --- 2. AUTHENTICATED STATE ---
+ * Handles Dashboard transition and PFP alignment.
  */
 function handleAuthenticatedState() {
-    const authSection = document.getElementById('auth-section');
+    const authSection = document.getElementById('auth-session');
     const mainUI = document.getElementById('main-ui');
     
     if (authSection) authSection.style.display = 'none';
     if (mainUI) {
         mainUI.style.display = 'block';
-        mainUI.style.filter = 'none';
-        mainUI.style.pointerEvents = 'auto';
     }
     
-    // Activate UI features
-    const trigger = document.getElementById('minibox-trigger');
-    if (trigger) trigger.style.display = 'flex';
+    // Hide Recovery Shield from Admin
+    const shield = document.getElementById('recovery-shield-trigger');
+    if (currentUser.user.isAdmin && shield) {
+        shield.style.display = 'none';
+    }
 
     renderProfile();
     
-    // Trigger file sync
-    if (window.fetchFiles) window.fetchFiles();
-
-    syncSystemNotifications();
-
-    // Start Recovery Monitoring (Exclude Admins from polling own requests)
-    if (!currentUser.isAdmin) {
+    // Start polling for the Green Notification Dot
+    if (!currentUser.user.isAdmin) {
         startRecoveryPolling();
     }
 }
 
 /**
- * --- 3. GUEST & ANONYMOUS LOCKDOWN ---
- * Implements the "guest cant interact anything" requirement.
+ * --- 3. GUEST LOCKDOWN ---
+ * Shows repository but disables all interactions.
  */
 function handleGuestState() {
-    console.log("[CORE] Guest Access: Restricted Mode Active.");
+    console.log("[CORE] Guest Mode: Interaction Restricted.");
     renderProfile();
     
     const mainUI = document.getElementById('main-ui');
     if (mainUI) {
-        mainUI.style.filter = 'blur(10px) grayscale(1)';
-        mainUI.style.pointerEvents = 'none'; // Disable all clicks
+        mainUI.style.display = 'block';
+        mainUI.style.filter = 'grayscale(1)';
+        mainUI.style.pointerEvents = 'none'; // Lock all clicks
     }
-
-    // Show specialized login prompt if overlay exists
-    const blocker = document.getElementById('guest-blocker');
-    if (blocker) blocker.style.display = 'flex';
+    
+    // Reveal Guest Hover Note
+    const guestNote = document.querySelector('.guest-tooltip');
+    if (guestNote) guestNote.style.display = 'block';
 }
 
 /**
- * --- 4. BRANDING SYNC ---
+ * --- 4. BRANDING SYNC (v1.0.3) ---
+ * Centers branding and updates Archive labels.
  */
 function applyBranding() {
-    // Update Master Title
-    const title = document.getElementById('app-title') || document.querySelector('.main-header h1');
+    const title = document.querySelector('.branding');
     if (title) {
         title.innerText = "SC EXPLORER";
-        title.style.fontSize = "3.5rem"; // Large as requested
-        title.style.letterSpacing = "10px";
+        // Ensure middle-alignment logic is applied via parent flex
+        title.parentElement.style.textAlign = "center";
     }
 
-    // Update Archive Label
-    const archiveLabel = document.getElementById('archive-title');
+    const archiveLabel = document.querySelector('.archive-module h2');
     if (archiveLabel) archiveLabel.innerText = "Your Archive";
 }
 
 /**
- * --- 5. NOTIFICATION & RECOVERY POLLING ---
+ * --- 5. RECOVERY MONITORING ---
+ * Polling for the Green Dot notification.
  */
-function syncSystemNotifications() {
-    if (currentUser.newRestoreAvailable) {
-        const dot = document.getElementById('notif-dot');
-        if (dot) dot.style.display = 'block';
-        
-        const vBox = document.getElementById('verify-box');
-        if (vBox && !currentUser.isAdmin) vBox.style.display = 'block';
-        
-        if (window.playNotificationSound) window.playNotificationSound();
-    }
-}
-
 function startRecoveryPolling() {
     if (recoveryCheckInterval) clearInterval(recoveryCheckInterval);
 
@@ -125,78 +102,48 @@ function startRecoveryPolling() {
         try {
             const res = await fetch('/api/auth/status');
             const data = await res.json();
-            window.currentUser = data;
-
-            if (data.newRestoreAvailable) {
-                const dot = document.getElementById('notif-dot');
-                if (dot) dot.style.display = 'block';
-                
-                // Fetch specific recovery details
-                const recRes = await fetch('/api/user/check-recovery');
-                const recData = await recRes.json();
-
-                if (recData.ready && !recData.claimed) {
-                    triggerClaimUI(recData.key);
+            
+            if (data.recoveryReady) {
+                const dot = document.getElementById('shield-notif');
+                if (dot) {
+                    dot.style.display = 'block';
+                    dot.classList.add('glow-green'); // Electric Green
                 }
             }
         } catch (e) {
             console.warn("[CORE] Polling sync interrupted.");
         }
-    }, 15000); 
-}
-
-function triggerClaimUI(key) {
-    const popup = document.getElementById('claim-popup');
-    if (popup && popup.style.display !== 'flex') {
-        const display = document.getElementById('claim-key-display');
-        if (display) display.innerText = key;
-        popup.style.display = 'flex';
-        if (window.playNotificationSound) window.playNotificationSound();
-    }
+    }, 10000); 
 }
 
 /**
- * --- 6. UI RENDERERS ---
+ * --- 6. UI RENDERER (32px PFP LEFT) ---
  */
 function renderProfile() {
-    const anchor = document.getElementById('profile-anchor');
-    if (!anchor) return;
+    const container = document.querySelector('.nav-left');
+    if (!container) return;
 
-    const logoutLabel = currentUser.isGuest ? "TERMINATE GUEST" : "LOGOUT";
-    const userColor = currentUser.isAdmin ? 'var(--gold)' : 'var(--electric-green)';
-    const avatarUrl = currentUser.avatar || "https://github.com/identicons/user.png";
+    const userColor = currentUser.user.isAdmin ? '#d4af37' : '#2ea44f';
+    const avatarUrl = currentUser.user.avatar || "/assets/default.png";
 
-    anchor.innerHTML = `
-        <div class="profile-card">
-            <img src="${avatarUrl}" class="nav-avatar" style="border: 2px solid ${userColor}">
-            <div class="profile-info">
-                <span class="nav-username" style="color:${userColor}">
-                    ${currentUser.username} 
-                    ${currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : ''}
-                </span>
-                <a href="/api/auth/logout" class="nav-logout">${logoutLabel}</a>
+    // Sets 32px PFP at left
+    container.innerHTML = `
+        <div class="pfp-anchor" onclick="toggleProfileMenu()">
+            <img src="${avatarUrl}" id="user-avatar" 
+                 style="width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid ${userColor}; align-self: flex-start;">
+            <div id="profile-ext" class="ext-menu" style="display:none;">
+                <div class="menu-item">Add Account</div>
+                <hr>
+                <a href="/api/auth/logout" class="menu-item logout">Log Out</a>
             </div>
         </div>`;
 }
 
 function handleAnonymousState() {
-    console.log("[CORE] Standing by at Gateway. Login required.");
     const mainUI = document.getElementById('main-ui');
     if (mainUI) mainUI.style.display = 'none';
-}
-
-function setupTitleSecret() {
-    const title = document.getElementById('app-title');
-    if (!title) return;
-
-    title.onclick = () => {
-        titleClicks++;
-        if (titleClicks === 5) {
-            title.style.textShadow = "0 0 20px var(--gold)";
-            title.style.color = "var(--gold)";
-            titleClicks = 0; 
-        }
-    };
+    const auth = document.getElementById('auth-session');
+    if (auth) auth.style.display = 'flex';
 }
 
 init();

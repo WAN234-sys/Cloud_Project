@@ -1,4 +1,4 @@
-/** SCE v1.0.1 [BETA] - NoA NEURAL LOGIC **/
+/** SCE v1.0.3 [BETA] - NoA NEURAL LOGIC **/
 
 const NoA = {
     isActive: false,
@@ -60,15 +60,13 @@ function logToNoA(message, type = "SYS") {
     const time = new Date().toLocaleTimeString([], { hour12: false });
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    entry.style.marginBottom = '8px';
-    entry.style.fontSize = '11px';
-    entry.style.opacity = '0';
-    entry.style.transition = 'opacity 0.3s ease-in';
+    entry.style.cssText = "margin-bottom: 8px; font-size: 11px; opacity: 0; transition: opacity 0.3s ease-in;";
 
     // Color logic based on type
-    let typeColor = "var(--electric-green)";
-    if (type === "WARN") typeColor = "#ff4d4d";
-    if (type === "THOUGHT") typeColor = "var(--gold)";
+    let typeColor = "#00ff41"; // Electric Green
+    if (type === "WARN") typeColor = "#ff4d4d"; // Alert Red
+    if (type === "THOUGHT") typeColor = "#ffd700"; // Recovery Gold
+    if (type === "USER") typeColor = "#ffffff"; // Standard White
 
     entry.innerHTML = `
         <span class="log-time" style="color:#555;">[${time}]</span>
@@ -82,12 +80,11 @@ function logToNoA(message, type = "SYS") {
 }
 
 /**
- * 3. INACTIVITY MONITORING & DYNAMIC MESSAGING
+ * 3. INACTIVITY MONITORING
  */
 function resetInactivityTimer() {
     clearTimeout(NoA.inactivityTimer);
     
-    // Hide thought bubble on any user movement/activity
     const bubble = document.getElementById('noa-thought-bubble');
     if (bubble && bubble.style.display === 'block') {
         bubble.style.display = 'none';
@@ -99,22 +96,22 @@ function resetInactivityTimer() {
 }
 
 /**
- * 4. AUTONOMOUS INTERACTION (The "Thinking" Logic)
+ * 4. AUTONOMOUS INTERACTION
  */
 function triggerNoAThought() {
     const bubble = document.getElementById('noa-thought-bubble');
     const msgSpan = document.getElementById('noa-short-msg');
+    const user = window.currentUser?.user;
     
     if (!bubble || !msgSpan || !window.currentUser) return;
 
     // 1. Determine Identity Pool
     let pool = NoA.messages.user;
-    if (window.currentUser.isAdmin || window.currentUser.username === 'WAN234-sys') {
+    if (user?.isAdmin || user?.username === 'WAN234') {
         pool = NoA.messages.admin;
-    } else if (window.currentUser.isGuest || window.currentUser.username === 'Guest') {
+    } else if (window.currentUser.isGuest) {
         pool = NoA.messages.guest;
-        // Visual restricted state for Guest
-        document.getElementById('noa-wrapper').classList.add('noa-restricted');
+        document.getElementById('noa-wrapper')?.classList.add('noa-restricted');
     }
 
     // 2. Selection Logic
@@ -134,9 +131,10 @@ document.addEventListener('mousemove', resetInactivityTimer);
 document.addEventListener('keypress', resetInactivityTimer);
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Sync NoA Visuals with Identity immediately
+    // Initial Boot Sequence
     setTimeout(() => {
-        const username = window.currentUser?.username || "Anonymous";
+        const user = window.currentUser?.user;
+        const username = user?.username || "Anonymous";
         const tag = document.getElementById('noa-clearance-tag');
         
         logToNoA("SCE Neural Core Bootstrapped.");
@@ -145,24 +143,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (window.currentUser?.isGuest) {
             if (tag) tag.innerText = "GUEST_LINK";
             logToNoA("WARN: Session is volatile. Interaction restricted.", "WARN");
-        } else if (window.currentUser?.isAdmin) {
+        } else if (user?.isAdmin) {
             if (tag) tag.innerText = "ADMIN_CLEARANCE";
             logToNoA("Status: Administrator bridge operational.");
+        } else {
+            if (tag) tag.innerText = "USER_LEVEL_1";
         }
 
-        if (window.currentUser?.newRestoreAvailable) {
-            logToNoA("RECOVERY_PROTOCOL: Key reconstitution detected in Minibox.", "WARN");
+        // Recovery Banner Check
+        if (window.currentUser?.recoveryReady) {
+            logToNoA("RECOVERY_PROTOCOL: Asset reconstitution ready in Minibox.", "WARN");
             const banner = document.getElementById('notif-banner');
             if (banner) banner.style.display = 'flex';
         }
     }, 1200);
-});
 
-// Listener for the Send Button in noa.html
-document.getElementById('noa-send-btn')?.addEventListener('click', () => {
-    const input = document.getElementById('noa-input');
-    if (input && input.value.trim()) {
-        logToNoA(input.value, "USER");
-        input.value = '';
-    }
+    // Send Button Listener
+    document.getElementById('noa-send-btn')?.addEventListener('click', () => {
+        const input = document.getElementById('noa-input');
+        if (input && input.value.trim()) {
+            logToNoA(input.value, "USER");
+            input.value = '';
+        }
+    });
+
+    // Enter Key Listener for Input
+    document.getElementById('noa-input')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const input = document.getElementById('noa-input');
+            if (input.value.trim()) {
+                logToNoA(input.value, "USER");
+                input.value = '';
+            }
+        }
+    });
 });

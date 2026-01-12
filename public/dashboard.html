@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC EXPLORER | Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="sce-v103-theme">
+
+    <nav class="nav-hub">
+        <div class="nav-left">
+            <div id="profile-anchor">
+                </div>
+        </div>
+
+        <div class="nav-center">
+            <h1 class="branding">SC EXPLORER</h1>
+        </div>
+
+        <div class="nav-right">
+            <div class="ai-interaction-group">
+                <div class="ai-side-trigger" onclick="handleAiLogic()">
+                    <div class="status-pulse"></div>
+                </div>
+                <div class="ai-main-icon"><i class="fas fa-robot"></i></div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="dashboard-content">
+        
+        <section class="archive-module">
+            <div class="section-header">
+                <h2>Your Archive</h2>
+            </div>
+            
+            <div id="upload-zone" class="drop-zone">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <p>upload project</p>
+            </div>
+
+            <div id="file-list-container" class="file-grid">
+                </div>
+        </section>
+
+        <section class="benefits-scroller">
+            <div class="benefit-card">
+                <i class="fas fa-cloud"></i>
+                <span>Cloud Sync</span>
+            </div>
+            <div class="benefit-card">
+                <i class="fas fa-search"></i>
+                <span>Live Explorer</span>
+            </div>
+            <div class="benefit-card">
+                <i class="fas fa-shield-virus"></i>
+                <span>Secure Delete</span>
+            </div>
+        </section>
+    </main>
+
+    <div id="recovery-shield-trigger" class="shield-fab">
+        <i class="fas fa-shield-alt"></i>
+        <div id="shield-notif" class="green-dot"></div>
+    </div>
+
+    <div id="recovery-mini-box" class="side-form-center">
+        <div class="mini-box-header">ASSET RECOVERY</div>
+        <input type="text" id="recover-filename" placeholder="Filename...">
+        <button onclick="submitRecoveryRequest()">REQUEST RESTORE</button>
+    </div>
+
+    <div id="delete-confirm-popup" class="bottom-confirm">
+        <p>Permanently delete <span id="delete-target-name"></span>?</p>
+        <div class="confirm-btns">
+            <button class="btn-yes" onclick="CloudSync.executeDelete()">DELETE</button>
+            <button class="btn-no" onclick="document.getElementById('delete-confirm-popup').style.display='none'">CANCEL</button>
+        </div>
+    </div>
+
+    <div id="terminal-overlay" style="display:none;">
+        <div id="terminal-output"></div>
+        <div class="terminal-input-line">
+            <span>></span>
+            <input type="text" id="terminal-input" autofocus autocomplete="off">
+        </div>
+    </div>
+
+    <script src="core.js"></script>
+    <script src="client.js"></script>
+    <script src="cloud.js"></script>
+    <script src="admin.js"></script>
+
+</body>
+</html>

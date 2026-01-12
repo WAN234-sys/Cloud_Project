@@ -1,4 +1,4 @@
-/** SCE v1.0.1 [BETA] - UI VERIFICATION & MODAL ENGINE **/
+/** SCE v1.0.3 [BETA] - UI VERIFICATION & MODAL ENGINE **/
 
 /**
  * 1. MODAL VISIBILITY CONTROL
@@ -13,15 +13,14 @@ function showClaimPopup(key) {
         // Inject verified key into the modal
         keyDisplay.innerText = key;
         
-        // Deployment: Uses Flex for center-screen focus and activation of blur
+        // Use Flex for center-screen focus and activation of backdrop blur
         popup.style.display = 'flex';
         
-        // Log to NoA Interface for narrative continuity
+        // Narrative continuity: Log to NoA if present
         if (window.logToNoA) {
             window.logToNoA("UI_ALERT: Success Modal deployed. Asset freed.", "SYS");
         }
         
-        // Visual trigger for CSS animations (pulseGold)
         console.log(`[UI] Reconstitution sequence complete. Target: ${key}`);
     } else {
         console.error("[UI] Critical Error: Success modal elements missing from DOM.");
@@ -30,7 +29,7 @@ function showClaimPopup(key) {
 
 /**
  * 2. CLIPBOARD PROTOCOL
- * Handles secure key copying with reactive visual feedback in the modal.
+ * Handles secure key copying with reactive visual feedback.
  */
 async function copyKeyToClipboard() {
     const keyDisplay = document.getElementById('claim-key-display');
@@ -67,11 +66,13 @@ async function copyKeyToClipboard() {
 
 /**
  * 3. MODAL DISMISSAL & RECOGNITION
- * Closes the view and ensures the 'Recovered' status is visible in the file list.
+ * Closes the view and refreshes the archive to show the new ★ status.
  */
 function closeClaimPopup() {
     const popup = document.getElementById('claim-popup');
     if (popup) {
+        // Fade out animation can be handled by CSS if display:none is delayed,
+        // but for now, we terminate the view immediately.
         popup.style.display = 'none';
     }
 

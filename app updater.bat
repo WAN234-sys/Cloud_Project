@@ -1,4 +1,4 @@
 git init
 git add .
-git commit -m "v0.3.41 [BETA]"
+git commit -m "v1.0.1 [BETA]"
 git push origin main --force

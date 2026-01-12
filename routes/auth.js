@@ -1,12 +1,12 @@
-/** SCE v0.3.41 [BETA] - AUTHENTICATION & IDENTITY ENGINE **/
+/** SCE v1.0.1 [BETA] - AUTHENTICATION & IDENTITY ENGINE **/
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 
 /**
- * --- 1. IDENTITY HANDSHAKE ---
- * Synchronizes the Frontend Global State with the Server Global State.
- * Controls the Red Notification Dot and Minibox visibility.
+ * --- 1. IDENTITY HANDSHAKE (v1.0.1) ---
+ * Synchronizes Frontend/Server Global States.
+ * Enhanced with NoA AI Intervention flags for autonomous guidance.
  */
 router.get('/user', (req, res) => {
     if (req.isAuthenticated()) {
@@ -14,11 +14,11 @@ router.get('/user', (req, res) => {
         const isAdmin = req.user.isAdmin || username === (process.env.ADMIN_USERNAME || "WAN234-sys");
         const isGuest = req.user.isGuest || false;
         
-        // v0.3.41 BETA: Check for pending recovery keys
+        // v1.0.1 BETA: Check for pending recovery keys in the global state
         const recoveryInfo = (!isGuest && global.recoveryData) ? global.recoveryData[username] : null;
         const hasPendingRecovery = recoveryInfo && recoveryInfo.ready && !recoveryInfo.claimed;
 
-        // Admin Alert: Check if there are new tickets in the queue
+        // Admin Alert: Check if there are new tickets in the queue for the Admin Terminal
         const adminHasTickets = isAdmin && global.adminTickets && global.adminTickets.length > 0;
 
         res.json({
@@ -27,28 +27,40 @@ router.get('/user', (req, res) => {
             avatar: req.user.avatar || "https://github.com/identicons/user.png",
             isAdmin: isAdmin,
             isGuest: isGuest,
-            // Logic: High-priority flag triggers the red dot for both Users (Keys) and Admins (Tickets)
-            newRestoreAvailable: !!(hasPendingRecovery || adminHasTickets)
+            // Logic: High-priority flag triggers the red notification dot for both Users and Admins
+            newRestoreAvailable: !!(hasPendingRecovery || adminHasTickets),
+            // NoA Context: Feeds the AI specialized state info to change its dialogue behavior
+            aiContext: isGuest ? "RESTRICTED_EXPLORER" : "AUTHENTICATED_USER"
         });
     } else {
-        res.json({ authenticated: false });
+        // NoA uses 'GATEWAY_ANONYMOUS' to proactively offer login assistance via the UI
+        res.json({ 
+            authenticated: false, 
+            aiContext: "GATEWAY_ANONYMOUS" 
+        });
     }
 });
 
 /**
  * --- 2. GITHUB OAUTH ---
+ * Standard GitHub authentication scope.
  */
 router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 
+/**
+ * GITHUB CALLBACK
+ * Handles successful login and forces session persistence before redirecting.
+ */
 router.get('/github/callback', 
     passport.authenticate('github', { failureRedirect: '/' }),
     (req, res) => {
-        // BETA FIX: Force session commit to prevent 'authenticated: false' on immediate refresh
+        // v1.0.1 FIX: Force session commit to prevent 'authenticated: false' on fast page loads
         req.session.save((err) => {
             if (err) {
-                console.error("[BETA AUTH] GitHub Sync Fail:", err);
+                console.error("[v1.0.1 AUTH] GitHub Sync Fail:", err);
                 return res.redirect('/');
             }
+            console.log(`[v1.0.1 AUTH] Neural Link established for: ${req.user.username}`);
             res.redirect('/');
         });
     }
@@ -56,7 +68,7 @@ router.get('/github/callback',
 
 /**
  * --- 3. GUEST EXPLORER PROTOCOL ---
- * Assigns a volatile ID for read-only access.
+ * Assigns a volatile ID for read-only access to the repository.
  */
 router.get('/guest', (req, res) => {
     const guestProfile = {
@@ -69,11 +81,11 @@ router.get('/guest', (req, res) => {
 
     req.login(guestProfile, (err) => {
         if (err) {
-            console.error("[BETA AUTH] Guest Init Error:", err);
+            console.error("[v1.0.1 AUTH] Guest Init Error:", err);
             return res.redirect('/');
         }
         req.session.save(() => {
-            console.log(`[BETA AUTH] Volatile Session Created: ${guestProfile.username}`);
+            console.log(`[v1.0.1 AUTH] Volatile Session Created: ${guestProfile.username}`);
             res.redirect('/');
         });
     });
@@ -81,16 +93,18 @@ router.get('/guest', (req, res) => {
 
 /**
  * --- 4. SECURE LOGOUT ---
+ * Purges local session, destroys server-side session, and clears browser cookies.
  */
 router.get('/logout', (req, res) => {
     req.logout((err) => {
-        if (err) console.error("[BETA AUTH] Logout Error:", err);
+        if (err) console.error("[v1.0.1 AUTH] Logout Error:", err);
         
         req.session.destroy((err) => {
-            if (err) console.error("[BETA AUTH] Session Destruct Error:", err);
+            if (err) console.error("[v1.0.1 AUTH] Session Destruct Error:", err);
             
+            // Explicitly clear the connection cookie
             res.clearCookie('connect.sid', { path: '/' }); 
-            console.log("[BETA AUTH] Local Session Purged.");
+            console.log("[v1.0.1 AUTH] Local Session Purged. Gateway Closed.");
             res.redirect('/');
         });
     });

@@ -1,18 +1,18 @@
-/** SCE v0.3.41 [BETA] - ADMIN ENGINE & BUCKET BRIDGE **/
+/** SCE v1.0.1 [BETA] - ADMIN ENGINE & BUCKET BRIDGE **/
 const express = require('express');
 const router = express.Router();
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase Client
+// Initialize Supabase Client using environment variables from Render
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ADMIN_USER = process.env.ADMIN_USERNAME || "WAN234-sys";
 
 /**
- * --- ADMIN RESTORE COMMAND (v0.3.41 BETA) ---
- * Sequence: Download from 'backup' -> Upload to 'modules' -> Issue Key
+ * --- 1. ADMIN RESTORE COMMAND (v1.0.1) ---
+ * Sequence: Download from 'backup' bucket -> Upload to 'modules' bucket -> Issue Claim Key
  */
 router.post('/restore', async (req, res) => {
-    // 1. SECURITY HANDSHAKE
+    // SECURITY HANDSHAKE: Ensure only the designated Admin can trigger a restore
     if (!req.isAuthenticated() || req.user.username !== ADMIN_USER) {
         console.warn(`[SECURITY] Unauthorized restore attempt by: ${req.user?.username}`);
         return res.status(403).json({ error: "Access Denied: Admin Clearance Required." });
@@ -24,14 +24,14 @@ router.post('/restore', async (req, res) => {
         return res.status(400).json({ error: "Missing parameters: username/filename." });
     }
 
-    // Path definitions for Bucket Bridge
+    // Path definitions for the transfer bridge
     const sourcePath = `archives/warranty_${username}_${filename}`;
     const destPath = `restored/${username}/${Date.now()}_${filename}`;
 
     try {
         console.log(`[BRIDGE] Initiating Bucket Bridge for ${username}`);
 
-        // 2. EXTRACTION (Isolated Backup Bucket)
+        // STEP A: EXTRACTION (Download from Secure Backup Bucket)
         const { data: blob, error: dlErr } = await supabase.storage
             .from('backup')
             .download(sourcePath);
@@ -40,7 +40,7 @@ router.post('/restore', async (req, res) => {
             throw new Error(`Asset [${filename}] not found in Secure Vault.`);
         }
 
-        // 3. RECONSTITUTION (Production Modules Bucket)
+        // STEP B: RECONSTITUTION (Upload to Production Modules Bucket)
         const { error: ulErr } = await supabase.storage
             .from('modules')
             .upload(destPath, blob, { 
@@ -50,21 +50,21 @@ router.post('/restore', async (req, res) => {
 
         if (ulErr) throw ulErr;
 
-        // 4. v0.3.41 KEY GENERATION (High Entropy)
-        // Generates a key like: "A1B2-C3D4"
-        const key = `${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        // STEP C: KEY GENERATION (High Entropy format: XXXX-XXXX)
+        const generateKey = () => `${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+        const key = generateKey();
 
-        // 5. GLOBAL STATE SYNC (For User Minibox Polling)
+        // STEP D: GLOBAL STATE SYNC (Triggers the User's "Minibox" notification)
         global.recoveryData[username] = {
             filename: filename,
             key: key,
             ready: true,
             claimed: false,
             processedAt: new Date().toISOString(),
-            vPath: destPath // Store path for final verification move
+            vPath: destPath 
         };
 
-        // 6. QUEUE PURGE
+        // STEP E: QUEUE PURGE (Remove from Admin's pending tickets)
         global.adminTickets = global.adminTickets.filter(t => t.username !== username);
 
         console.log(`[BRIDGE SUCCESS] Restore Key issued to ${username}: ${key}`);
@@ -82,7 +82,31 @@ router.post('/restore', async (req, res) => {
 });
 
 /**
- * --- ADMIN TICKET VIEW ---
+ * --- 2. NOTIFICATION PURGE (v1.0.1 NEW) ---
+ * Triggered by the client-side verify.js when a user confirms the claim.
+ * This clears the Admin's notification red dot automatically.
+ */
+router.post('/clear-notification', (req, res) => {
+    const { key } = req.body;
+    
+    // Cross-reference the key to find the file owner in the recovery object
+    const owner = Object.keys(global.recoveryData).find(
+        u => global.recoveryData[u].key === key
+    );
+
+    if (owner) {
+        // Purge the specific admin ticket
+        global.adminTickets = global.adminTickets.filter(t => t.username !== owner);
+        console.log(`[PURGE] Admin notification for ${owner} cleared via verify.js handshake.`);
+        return res.status(200).json({ success: true });
+    }
+
+    res.status(404).json({ success: false, message: "No active ticket found for this key." });
+});
+
+/**
+ * --- 3. ADMIN TICKET VIEW ---
+ * Returns the list of pending recovery requests for the Admin Terminal.
  */
 router.get('/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.username === ADMIN_USER) {
@@ -93,12 +117,13 @@ router.get('/tickets', (req, res) => {
 });
 
 /**
- * --- TICKET INTAKE HANDLER ---
+ * --- 4. TICKET INTAKE HANDLER ---
+ * Triggered when a standard user requests a file warranty/restore.
  */
 router.post('/mail/send', (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     
-    // Explicit block for Guest users
+    // Guest accounts cannot request file restores
     if (req.user.isGuest) {
         return res.status(403).send("Guest accounts restricted from Warranty use.");
     }

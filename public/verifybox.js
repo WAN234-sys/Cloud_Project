@@ -1,64 +1,73 @@
-/** SCE v0.3.41 [BETA] - UI VERIFICATION & MODAL ENGINE **/
+/** SCE v1.0.1 [BETA] - UI VERIFICATION & MODAL ENGINE **/
 
 /**
  * 1. MODAL VISIBILITY CONTROL
- * Handles the display of the success popup after a valid handshake.
+ * Triggers the success popup. Injected by verify.js upon valid handshake.
  */
 function showClaimPopup(key) {
     const popup = document.getElementById('claim-popup');
     const keyDisplay = document.getElementById('claim-key-display');
     
     if (popup && keyDisplay) {
-        // Inject the verified key into the UI
+        // Inject verified key into the modal
         keyDisplay.innerText = key;
         
-        // Use flex for center alignment (defined in index.html)
+        // Deployment: Uses Flex for center-screen focus
         popup.style.display = 'flex';
         
-        // Play system success chime if sound engine is active
-        if (window.playSuccessSound) playSuccessSound();
+        // Log to NoA Interface for narrative continuity
+        if (window.logToNoA) {
+            window.logToNoA("UI_ALERT: Success Modal deployed.", "SYS");
+        }
         
-        console.log(`[UI] Success Modal deployed for key: ${key}`);
+        // Sound Engine Hook (Optional SCE Sound Kit)
+        if (window.playSuccessSound) window.playSuccessSound();
+        
+        console.log(`[UI] Reconstitution successful. Modal active for: ${key}`);
     } else {
-        console.error("[UI] Critical Error: Claim modal elements missing from DOM.");
+        console.error("[UI] Critical Error: Success modal elements missing from DOM.");
     }
 }
 
 /**
  * 2. CLIPBOARD PROTOCOL
- * Securely copies the claim key to the user's clipboard.
+ * Handles high-entropy key copying with visual feedback.
  */
 async function copyKeyToClipboard() {
     const keyDisplay = document.getElementById('claim-key-display');
+    const feedbackLabel = document.querySelector('.key-container small');
+    
     if (!keyDisplay) return;
 
     const keyText = keyDisplay.innerText;
-    const feedbackLabel = document.querySelector('.key-container small');
 
     try {
         await navigator.clipboard.writeText(keyText);
         
-        // Visual confirmation feedback
+        // Visual confirmation transition
         if (feedbackLabel) {
             const originalText = feedbackLabel.innerText;
             feedbackLabel.innerText = "COPIED TO SYSTEM CLIPBOARD";
             feedbackLabel.style.color = "var(--electric-green)";
+            feedbackLabel.style.fontWeight = "bold";
             
-            // Revert feedback after delay
+            // Revert state after delay
             setTimeout(() => {
                 feedbackLabel.innerText = originalText;
                 feedbackLabel.style.color = "var(--gold)";
+                feedbackLabel.style.fontWeight = "normal";
             }, 2500);
         }
     } catch (err) {
-        console.warn("[UI] Clipboard write failed. Fallback to manual selection.");
-        alert("Please manually copy the key: " + keyText);
+        console.warn("[UI] Clipboard access denied. Manual selection required.");
+        // NoA fallback log
+        if (window.logToNoA) window.logToNoA("WARN: Clipboard link blocked by browser.", "ERR");
     }
 }
 
 /**
- * 3. MODAL DISMISSAL & SYNC
- * Closes the view and refreshes the repository to show the '⭐' Recovered icon.
+ * 3. MODAL DISMISSAL & RECOGNITION
+ * Closes the view and ensures the 'Recovered' status is visible in the list.
  */
 function closeClaimPopup() {
     const popup = document.getElementById('claim-popup');
@@ -66,19 +75,20 @@ function closeClaimPopup() {
         popup.style.display = 'none';
     }
 
-    console.log("[UI] Modal dismissed. Initializing repository refresh...");
+    console.log("[UI] Modal dismissed. Syncing file archive...");
 
-    // Trigger terminal.js sync if available, else hard reload
+    // Refresh the repository to show the '⭐' Recovered icon
     if (typeof window.fetchFiles === 'function') {
         window.fetchFiles();
     } else {
-        location.reload();
+        // Fallback for fragmented loads
+        window.location.reload();
     }
 }
 
 /**
- * 4. EVENT BINDING: ESC KEY
- * Accessibility shortcut to close the modal.
+ * 4. SYSTEM ACCESSIBILITY
+ * Shortcut: [ESC] key terminates the modal view.
  */
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -88,3 +98,8 @@ window.addEventListener('keydown', (e) => {
         }
     }
 });
+
+// Global export for verify.js and minibox.html
+window.showClaimPopup = showClaimPopup;
+window.copyKeyToClipboard = copyKeyToClipboard;
+window.closeClaimPopup = closeClaimPopup;

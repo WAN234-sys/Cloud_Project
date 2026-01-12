@@ -1,9 +1,9 @@
-/** SCE v0.3.41 [BETA] - GUEST PROTOCOL ENGINE **/
+/** SCE v1.0.1 [BETA] - GUEST PROTOCOL ENGINE **/
 
 /**
- * 1. TAW LOGIC GATE
- * Sequence: TAW Checkbox dictates which Auth Pathway is available.
- * Logic: TAW Checked -> GitHub (Protection On) | TAW Unchecked -> Guest (Volatile)
+ * --- 1. TAW LOGIC GATE ---
+ * Sequence: TAW Checkbox dictates the Auth Pathway.
+ * Logic: TAW Checked -> Secure Identity (GitHub) | TAW Unchecked -> Volatile Session (Guest)
  */
 function setupTOSListener() {
     const tos = document.getElementById('tosAgree');
@@ -12,22 +12,24 @@ function setupTOSListener() {
 
     if (!tos || !ghBtn || !guestBtn) return;
 
-    // Default v0.3.41 State: Guest is primary option until TAW is accepted
+    // Initialization: Guest is the primary option until TAW is accepted
+    console.log("[GUEST] Gateway Logic Primed.");
     guestBtn.classList.remove('disabled');
     guestBtn.style.opacity = "1";
     ghBtn.classList.add('disabled');
     ghBtn.style.opacity = "0.3";
+    ghBtn.style.pointerEvents = "none";
 
     tos.onchange = (e) => {
         const isTawTicked = e.target.checked;
 
         if (isTawTicked) {
-            // TAW ACCEPTED: Unlock Secure GitHub Auth
+            // TAW ACCEPTED: Unlock Secure GitHub Auth (Identity Preservation On)
             ghBtn.classList.remove('disabled');
             ghBtn.style.pointerEvents = "auto";
             ghBtn.style.opacity = "1";
 
-            // Disable Guest Path (Safety Protocol)
+            // Disable Guest Path (Safety Protocol to prevent accidental data loss)
             guestBtn.classList.add('disabled');
             guestBtn.style.pointerEvents = "none";
             guestBtn.style.opacity = "0.2";
@@ -37,7 +39,7 @@ function setupTOSListener() {
             ghBtn.style.pointerEvents = "none";
             ghBtn.style.opacity = "0.3";
 
-            // Restore Guest Path
+            // Restore Guest Path (Volatile Exploration)
             guestBtn.classList.remove('disabled');
             guestBtn.style.pointerEvents = "auto";
             guestBtn.style.opacity = "1";
@@ -46,9 +48,9 @@ function setupTOSListener() {
 }
 
 /**
- * 2. REDACTION PROTOCOL (v0.3.41)
- * Requirement: Volatile sessions cannot see community IP.
- * Applied to: File List and Terminal Outputs.
+ * --- 2. REDACTION PROTOCOL ---
+ * Requirement: Volatile sessions (Guests) cannot view Community IP.
+ * Logic: Blurs and renames assets for Guest accounts.
  */
 function getSecureDisplayInfo(file) {
     if (window.currentUser && window.currentUser.isGuest) {
@@ -56,12 +58,12 @@ function getSecureDisplayInfo(file) {
             name: "REDACTED_ASSET.c",
             owner: "HIDDEN_IDENTITY",
             isLocked: true,
-            // Visual blurring for Guest sessions
-            style: "filter: blur(5px); opacity: 0.6; user-select: none; pointer-events: none;"
+            // Visual blurring for Guest sessions to protect asset privacy
+            style: "filter: blur(4px); opacity: 0.5; user-select: none; pointer-events: none;"
         };
     }
     return {
-        name: file.displayName,
+        name: file.displayName || file.name,
         owner: file.owner,
         isLocked: false,
         style: ""
@@ -69,27 +71,42 @@ function getSecureDisplayInfo(file) {
 }
 
 /**
- * 3. GUEST REPOSITORY VIEW ADAPTATION
- * Requirement: Inform the guest they are in a restricted read-only environment.
+ * --- 3. UI RESTRICTION ENGINE ---
+ * Requirement: Visually locks the interface to inform the guest of read-only state.
  */
-function renderGuestRestrictedUI() {
+function applyGuestRestrictions() {
     if (!window.currentUser || !window.currentUser.isGuest) return;
 
+    console.log("[GUEST] Applying volatile session restrictions...");
+
+    // 1. Redact Repository Headers
     const communityHeader = document.querySelector('.section-title');
     if (communityHeader) {
-        communityHeader.innerHTML = 'COMMUNITY ARCHIVE <span class="badge-admin" style="background:#444; color:#aaa;">LOCKED</span>';
+        communityHeader.innerHTML = 'COMMUNITY ARCHIVE <span class="badge-guest" style="background:#333; color:#777; font-size: 10px; padding: 2px 5px;">READ_ONLY</span>';
     }
 
-    // Block transmission UI
+    // 2. Disable Upload Interface (Transmission)
     const uploadSection = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('cfile');
     if (uploadSection) {
-        uploadSection.style.opacity = "0.2";
+        uploadSection.style.opacity = "0.3";
         uploadSection.style.cursor = "not-allowed";
-        document.getElementById('file-label-text').innerText = "TRANSMISSION DISABLED FOR GUESTS";
+        uploadSection.onclick = (e) => {
+            e.preventDefault();
+            alert("GUEST_RESTRICTION: Establish Neural Link (GitHub) to transmit assets.");
+        };
     }
+    if (fileInput) fileInput.disabled = true;
+
+    // 3. Inform the User via the prompt
+    const fileLabel = document.getElementById('file-label-text');
+    if (fileLabel) fileLabel.innerText = "IDENTITY UNVERIFIED - UPLOAD DISABLED";
 }
 
-// Global Initialization for Login Screen
+// Global Initialization for Gateway Page
 document.addEventListener('DOMContentLoaded', () => {
-    setupTOSListener();
+    // Only run if we are on the login/gateway page
+    if (document.getElementById('tosAgree')) {
+        setupTOSListener();
+    }
 });

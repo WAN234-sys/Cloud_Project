@@ -1,0 +1,170 @@
+<div id="admin-terminal-overlay" class="terminal-container" style="display: none;">
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <div class="header-left">
+                <i class="fas fa-terminal"></i>
+                <span class="header-text">SCE_ADMIN_BRIDGE_v1.0.1</span>
+            </div>
+            <div class="header-right">
+                <span class="status-indicator">SECURE_LINK_ESTABLISHED</span>
+                <button class="btn-close" onclick="toggleAdminTerminal()">×</button>
+            </div>
+        </div>
+
+        <div class="terminal-layout">
+            
+            <aside class="ticket-sidebar">
+                <div class="sidebar-header">PENDING_REQUESTS</div>
+                <div id="admin-ticket-list" class="ticket-scroll">
+                    <div class="shimmer">LISTENING_FOR_HANDSHAKES...</div>
+                </div>
+            </aside>
+
+            <main class="command-main">
+                <div id="terminal-output" class="output-log">
+                    <div class="log-line sys">[BOOT] Administrator WAN234 online.</div>
+                    <div class="log-line sys">[BOOT] Connection: Shared-Code-Explorer (OnRender)</div>
+                    <div class="log-line info">[INFO] Select a ticket to begin reconstitution protocol.</div>
+                </div>
+
+                <div id="terminal-actions" class="action-bar" style="display: none;">
+                    <div class="action-details">
+                        <span id="target-user" class="target">USER: ---</span>
+                        <span id="target-file" class="target">FILE: ---</span>
+                    </div>
+                    <button id="process-btn" class="btn-reconstitute" onclick="processTicket()">
+                        <i class="fas fa-atom"></i> INITIALIZE RECONSTITUTION
+                    </button>
+                </div>
+            </main>
+        </div>
+
+        <div class="terminal-footer">
+            <div class="stat-item">VOLATILE_MEMORY: <span id="mem-usage">OK</span></div>
+            <div class="stat-item">BRIDGE_LATENCY: <span id="bridge-ping">-- ms</span></div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Terminal Architecture */
+.terminal-container {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.terminal-window {
+    width: 100%;
+    max-width: 900px;
+    height: 600px;
+    background: #050505;
+    border: 1px solid var(--gh-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 50px 100px rgba(0,0,0,0.9);
+}
+
+/* Header */
+.terminal-header {
+    background: #1a1a1a;
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #333;
+    font-family: var(--code-font);
+}
+
+.header-text { font-size: 11px; color: #aaa; letter-spacing: 1px; }
+.status-indicator { font-size: 9px; color: var(--electric-green); margin-right: 15px; }
+.btn-close { background: none; border: none; color: #555; font-size: 20px; cursor: pointer; transition: 0.2s; }
+.btn-close:hover { color: var(--danger-red); }
+
+/* Body Layout */
+.terminal-layout { flex: 1; display: flex; overflow: hidden; }
+
+.ticket-sidebar {
+    width: 300px;
+    border-right: 1px solid #222;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    background: #0a0a0a;
+    padding: 10px;
+    font-size: 10px;
+    color: var(--gold);
+    font-weight: bold;
+    border-bottom: 1px solid #222;
+}
+
+.ticket-scroll { flex: 1; overflow-y: auto; padding: 10px; }
+
+/* Ticket Items */
+.admin-ticket-item {
+    background: #0d0d0d;
+    border: 1px solid #222;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.admin-ticket-item:hover { border-color: var(--gold); background: #151515; }
+.admin-ticket-item.active { border-color: var(--gold); background: rgba(255, 215, 0, 0.05); }
+
+/* Main Output */
+.command-main { flex: 1; display: flex; flex-direction: column; position: relative; }
+.output-log { flex: 1; padding: 20px; font-family: var(--code-font); font-size: 12px; overflow-y: auto; }
+
+.log-line { margin-bottom: 5px; }
+.log-line.sys { color: var(--electric-green); }
+.log-line.info { color: #888; }
+.log-line.warn { color: var(--gold); }
+
+/* Action Bar */
+.action-bar {
+    background: #111;
+    padding: 15px;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.target { display: block; font-size: 10px; font-family: var(--code-font); color: #aaa; }
+.btn-reconstitute {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    font-weight: 900;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--system-font);
+    font-size: 11px;
+}
+
+.btn-reconstitute:hover { background: #fff; box-shadow: 0 0 15px var(--gold); }
+
+.terminal-footer {
+    background: #0a0a0a;
+    padding: 5px 15px;
+    display: flex;
+    gap: 20px;
+    border-top: 1px solid #222;
+    font-family: var(--code-font);
+    font-size: 9px;
+    color: #444;
+}
+</style>

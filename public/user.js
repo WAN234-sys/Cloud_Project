@@ -1,4 +1,4 @@
-/** SCE v0.3.41 [BETA] - IDENTITY & HANDSHAKE ENGINE **/
+/** SCE v1.0.1 [BETA] - IDENTITY & HANDSHAKE ENGINE **/
 
 // Global User State
 window.currentUser = {
@@ -12,7 +12,7 @@ window.currentUser = {
 
 /**
  * 1. IDENTITY INITIALIZATION
- * Sequence: Fetches session data from /api/auth/status
+ * Fetches session data and toggles between the Login Gateway and the Main HUD.
  */
 async function initUserSession() {
     try {
@@ -25,54 +25,62 @@ async function initUserSession() {
                 newRestoreAvailable: false
             };
             
-            // Proceed to UI Load
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('main-ui').style.display = 'block';
-            document.getElementById('minibox-trigger').style.display = 'flex';
+            // Transition to System UI
+            const authSection = document.getElementById('auth-section');
+            const mainUI = document.getElementById('main-ui');
+            const minibox = document.getElementById('minibox-trigger');
+
+            if (authSection) authSection.style.display = 'none';
+            if (mainUI) mainUI.style.display = 'block';
+            if (minibox) minibox.style.display = 'flex';
             
             renderProfile();
             
-            // Start the Recovery Handshake Loop
+            // Start Background Handshake Protocol
             startRecoveryHandshake();
             
-            // Initial File Sync
+            // Trigger initial Cloud Asset Sync
             if (window.fetchFiles) window.fetchFiles();
         }
     } catch (err) {
-        console.warn("SCE: No active session detected. Awaiting Gateway input.");
+        console.warn("SCE_SESSION: Standing by at Gateway. Authentication required.");
     }
 }
 
 /**
  * 2. PROFILE RENDERING
- * Requirement: Display identity in the anchor zone
+ * Injects the identity card into the Navigation Hub.
  */
 function renderProfile() {
     const anchor = document.getElementById('profile-anchor');
     if (!anchor) return;
 
+    const roleTag = window.currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : '';
+    const sessionLabel = window.currentUser.isGuest ? 'VOLATILE_SESSION' : 'SECURED_VIA_TAW';
+
     anchor.innerHTML = `
-        <div class="user-profile-card" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; padding:10px; background:var(--card-bg); border-radius:12px; border:1px solid var(--gh-border);">
-            <img src="${window.currentUser.avatar || 'https://via.placeholder.com/32'}" style="width:32px; height:32px; border-radius:50%; border:1px solid var(--electric-green);">
-            <div>
-                <div style="font-size:12px; font-weight:700;">${window.currentUser.username} ${window.currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : ''}</div>
-                <div style="font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">
-                    ${window.currentUser.isGuest ? 'Volatile Session' : 'Secured via TAW'}
-                </div>
+        <div class="profile-card">
+            <div class="profile-info">
+                <span class="nav-username">${window.currentUser.username} ${roleTag}</span>
+                <span class="nav-logout-wrap">
+                    <span style="font-size:8px; color:var(--text-muted);">${sessionLabel}</span>
+                    <a href="/api/auth/logout" class="nav-logout" title="Terminate Link"> // DISCONNECT</a>
+                </span>
             </div>
-            <a href="/api/auth/logout" style="margin-left:auto; font-size:14px; color:var(--danger-red); opacity:0.6;"><i class="fas fa-power-off"></i></a>
+            <img src="${window.currentUser.avatar || 'https://via.placeholder.com/32'}" class="nav-avatar">
         </div>
     `;
 }
 
 /**
- * 3. RECOVERY HANDSHAKE (v0.3.41 New)
- * Logic: Periodically checks if an Admin has issued a Claim Key
+ * 3. RECOVERY HANDSHAKE PROTOCOL
+ * Periodically polls the server to see if an Admin reconstituted an asset.
  */
 async function startRecoveryHandshake() {
-    if (window.currentUser.isGuest) return; // Guests have no recovery rights
+    // Only authenticated, non-guest users participate in TAW recovery
+    if (window.currentUser.isGuest || !window.currentUser.authenticated) return;
 
-    const check = async () => {
+    const checkVault = async () => {
         try {
             const res = await fetch('/api/user/check-recovery');
             const data = await res.json();
@@ -80,26 +88,30 @@ async function startRecoveryHandshake() {
             if (data.ready) {
                 window.currentUser.newRestoreAvailable = true;
                 
-                // Alert the user via Minibox Notification
+                // Trigger the Minibox Visual Notification (Red Dot)
                 const dot = document.getElementById('notif-dot');
                 if (dot) dot.style.display = 'block';
                 
-                // If Minibox is open, re-render to show the key input
-                if (document.getElementById('minibox-ui').style.display === 'block') {
+                // If NoA is online, log the event to her terminal
+                if (window.logToNoA) {
+                    window.logToNoA(`NOTIFICATION: Asset [${data.filename}] reconstituted. Key ready.`, "INFO");
+                }
+
+                // If the user currently has the Minibox UI open, refresh its content
+                const miniboxUI = document.getElementById('minibox-ui');
+                if (miniboxUI && miniboxUI.style.display === 'block') {
                     if (window.renderMiniboxContent) window.renderMiniboxContent();
                 }
-                
-                console.log(`[VAULT] New Recovery Key detected for ${data.filename}`);
             }
         } catch (e) {
-            console.error("Handshake Error: Link unstable.");
+            console.error("SCE_HANDSHAKE: Signal lost. Retrying...");
         }
     };
 
-    // Initial check + every 30 seconds
-    check();
-    setInterval(check, 30000);
+    // Immediate check on boot, then every 45 seconds to minimize server load
+    checkVault();
+    setInterval(checkVault, 45000);
 }
 
-// Auto-boot sequence
+// Global initialization
 document.addEventListener('DOMContentLoaded', initUserSession);

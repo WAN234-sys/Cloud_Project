@@ -1,4 +1,4 @@
-/** SCE v0.3.41 [BETA] - CLOUD ENGINE & DUAL-SYNC PROTOCOL **/
+/** SCE v1.0.1 [BETA] - CLOUD ENGINE & DUAL-SYNC PROTOCOL **/
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -10,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 /**
  * --- 1. ASSET TRANSMISSION ---
- * Logic: Dual-sync to 'modules' (Live) AND 'backup' (SECURED Warranty Vault)
+ * Logic: Dual-sync to 'modules' (Live Repository) AND 'backup' (SECURED Warranty Vault)
  */
 router.post('/upload', upload.single('cfile'), async (req, res) => {
     // 1. SECURITY HANDSHAKE
@@ -19,9 +19,14 @@ router.post('/upload', upload.single('cfile'), async (req, res) => {
 
     const file = req.file;
     if (!file) return res.status(400).send("No asset provided.");
-    if (!file.originalname.endsWith('.c')) return res.status(400).send("Protocol Error: .c Source Required.");
+    
+    // Safety check for file extension
+    if (!file.originalname.endsWith('.c')) {
+        return res.status(400).send("Protocol Error: .c Source Required.");
+    }
 
-    const fileName = `${Date.now()}_${req.user.username}_${file.originalname}`;
+    const timestamp = Date.now();
+    const fileName = `${timestamp}_${req.user.username}_${file.originalname}`;
     const warrantyName = `archives/warranty_${req.user.username}_${file.originalname}`;
 
     try {
@@ -38,7 +43,7 @@ router.post('/upload', upload.single('cfile'), async (req, res) => {
         if (primaryErr) throw primaryErr;
 
         // PHASE B: SECURED Warranty Vault Sync (Hidden Backup)
-        // This copy is immutable and only accessible via Admin Bridge
+        // This copy is immutable and only accessible via Admin Bridge for restores.
         const { error: backupErr } = await supabase.storage
             .from('backup')
             .upload(warrantyName, file.buffer, {
@@ -46,7 +51,9 @@ router.post('/upload', upload.single('cfile'), async (req, res) => {
                 upsert: true
             });
 
-        if (backupErr) console.warn("[WARRANTY WARNING] Backup sync delayed or failed.");
+        if (backupErr) {
+            console.warn(`[WARRANTY WARNING] Backup sync failed for ${file.originalname}:`, backupErr.message);
+        }
 
         console.log(`[SUCCESS] ${fileName} synced to Repository & Vault.`);
         res.status(200).send("Transmission Complete");
@@ -59,33 +66,50 @@ router.post('/upload', upload.single('cfile'), async (req, res) => {
 
 /**
  * --- 2. REPOSITORY FETCH ---
- * Logic: Lists assets with metadata for Frontend KB conversion
+ * Logic: Lists assets from the 'modules' bucket and 'restored' folders.
  */
 router.get('/files', async (req, res) => {
     try {
-        const { data, error } = await supabase.storage
+        // Fetch primary uploads
+        const { data: uploads, error: upErr } = await supabase.storage
             .from('modules')
             .list('uploads', { 
                 limit: 100, 
                 sortBy: { column: 'created_at', order: 'desc' } 
             });
 
-        if (error) throw error;
+        if (upErr) throw upErr;
 
-        const formattedFiles = data.map(f => {
-            // Filename Parsing: [timestamp]_[owner]_[displayname]
+        // Fetch restored assets specifically for this user (if authenticated)
+        let restoredFiles = [];
+        if (req.isAuthenticated() && !req.user.isGuest) {
+            const { data: rData } = await supabase.storage
+                .from('modules')
+                .list(`restored/${req.user.username}`, { limit: 20 });
+            if (rData) restoredFiles = rData.map(f => ({ ...f, isRestoredFolder: true }));
+        }
+
+        const allFiles = [...restoredFiles, ...uploads];
+
+        const formattedFiles = allFiles.map(f => {
+            const isRecovered = f.isRestoredFolder || f.name.startsWith('RESTORED_');
+            
+            // Parsing logic based on pathing
             const parts = f.name.split('_');
-            const owner = parts[1] || "System";
-            const displayName = parts.slice(2).join('_');
-            const isRecovered = f.name.startsWith('RESTORED_');
+            const owner = f.isRestoredFolder ? req.user.username : (parts[1] || "System");
+            const displayName = f.isRestoredFolder ? f.name.split('_').slice(1).join('_') : parts.slice(2).join('_');
+            
+            const filePath = f.isRestoredFolder ? 
+                `restored/${req.user.username}/${f.name}` : 
+                `uploads/${f.name}`;
 
             return {
                 name: f.name,
-                displayName: displayName,
+                displayName: displayName || f.name,
                 owner: owner,
                 sizeBytes: f.metadata?.size || 0,
                 isRecovered: isRecovered,
-                url: supabase.storage.from('modules').getPublicUrl(`uploads/${f.name}`).data.publicUrl,
+                url: supabase.storage.from('modules').getPublicUrl(filePath).data.publicUrl,
                 canManage: req.user && (req.user.username === owner || req.user.isAdmin),
                 isBackedUp: true 
             };
@@ -105,20 +129,22 @@ router.delete('/files/:name', async (req, res) => {
     if (!req.isAuthenticated() || req.user.isGuest) return res.status(403).send("Forbidden");
 
     try {
-        const parts = req.params.name.split('_');
+        const fileName = req.params.name;
+        
+        // Determine owner from filename (format: timestamp_owner_name.c)
+        const parts = fileName.split('_');
         const owner = parts[1];
 
-        // Authorization: Must be owner or sys-admin
         if (req.user.username !== owner && !req.user.isAdmin) {
             return res.status(403).send("Clearance Denied: Ownership Mismatch.");
         }
 
         const { error } = await supabase.storage
             .from('modules')
-            .remove([`uploads/${req.params.name}`]);
+            .remove([`uploads/${fileName}`]);
 
         if (error) throw error;
-        res.status(200).send("Asset Purged from Primary Repository.");
+        res.status(200).send("Asset Purged.");
     } catch (err) {
         res.status(500).send("Deletion Failed.");
     }

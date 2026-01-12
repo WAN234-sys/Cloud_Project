@@ -1,4 +1,5 @@
-/** SCE v0.3.41 [BETA] - CORE ENGINE **/
+/** SCE v1.0.1 [BETA] - CORE ENGINE & IDENTITY HANDSHAKE **/
+
 let currentUser = null;
 let recoveryCheckInterval = null;
 let titleClicks = 0; 
@@ -6,92 +7,75 @@ let titleClicks = 0;
 /**
  * --- 1. BOOT SEQUENCE ---
  * Primary entry point. Handles session sync and UI state transitions.
+ * Executes after DOM is ready and client.js modules are mounted.
  */
 async function init() {
-    console.log("CORE: Initiating v0.3.41 [BETA] Identity Handshake...");
+    console.log("%c[CORE] Initiating v1.0.1 BETA Handshake...", "color: #3498db; font-weight: bold;");
     setupTitleSecret(); 
 
     try {
         const res = await fetch('/api/auth/user');
         currentUser = await res.json();
         
+        // Sync Global State for other scripts (NoA.js, client.js)
+        window.currentUser = currentUser;
+
         if (currentUser.authenticated) {
-            // UI State Transition: Switch from Login to Main App
-            const authSection = document.getElementById('auth-section');
-            const mainUI = document.getElementById('main-ui');
-            
-            if (authSection) authSection.style.display = 'none';
-            if (mainUI) mainUI.style.display = 'block';
-            
-            // Activate Minibox Interface
-            const trigger = document.getElementById('minibox-trigger');
-            if (trigger) trigger.style.display = 'flex';
-
-            renderProfile();
-            
-            // Initialization of Modular Logic from client.js
-            if (window.setupActionListeners) setupActionListeners(); 
-            if (window.fetchFiles) fetchFiles();
-
-            // v0.3.41 State Check: Notify user of pending items
-            handleInitialNotifications();
-
-            // Start Recovery Monitoring (Locked for Guests)
-            if (!currentUser.isAdmin && !currentUser.isGuest) {
-                startRecoveryPolling();
-            }
-            
+            handleAuthenticatedState();
         } else {
-            // Unauthenticated: Initialize Guest/TOS listener
-            if (window.setupTOSListener) setupTOSListener();
+            handleAnonymousState();
         }
     } catch (err) {
-        console.error("CORE: Handshake Protocol Failed", err);
+        console.error("[CORE CRITICAL] Handshake Protocol Failed:", err);
     }
 }
 
 /**
- * --- 2. NOTIFICATION HANDLER ---
- * Triggers UI elements based on the 'newRestoreAvailable' flag.
+ * --- 2. AUTHENTICATED STATE LOGIC ---
  */
-function handleInitialNotifications() {
+function handleAuthenticatedState() {
+    // UI State Transition
+    const authSection = document.getElementById('auth-section');
+    const mainUI = document.getElementById('main-ui');
+    
+    if (authSection) authSection.style.display = 'none';
+    if (mainUI) mainUI.style.display = 'block';
+    
+    // Activate Minibox Interface
+    const trigger = document.getElementById('minibox-trigger');
+    if (trigger) trigger.style.display = 'flex';
+
+    renderProfile();
+    
+    // Initialize Repository Data
+    if (window.fetchFiles) window.fetchFiles();
+
+    // Check for pending items immediately on login
+    syncSystemNotifications();
+
+    // Start Recovery Monitoring (Bypassed for Guests & Admins)
+    if (!currentUser.isAdmin && !currentUser.isGuest) {
+        startRecoveryPolling();
+    }
+}
+
+/**
+ * --- 3. NOTIFICATION & RECOVERY SYNC ---
+ */
+function syncSystemNotifications() {
     if (currentUser.newRestoreAvailable) {
+        // Red Dot logic for Nav
         const dot = document.getElementById('notif-dot');
         if (dot) dot.style.display = 'block';
         
-        // Show Verification Minibox if user has an unclaimed key
+        // Verification Minibox visibility
         const vBox = document.getElementById('verify-box');
         if (vBox && !currentUser.isAdmin) {
             vBox.style.display = 'block';
         }
         
-        if (window.playNotificationSound) playNotificationSound();
+        if (window.playNotificationSound) window.playNotificationSound();
     }
-}
-
-/**
- * --- 3. PROFILE RENDERER ---
- * Supports GitHub Avatars, Admin Badging, and dynamic logout labels.
- */
-function renderProfile() {
-    const anchor = document.getElementById('profile-anchor');
-    if (!anchor) return;
-
-    const logoutLabel = currentUser.isGuest ? "BACK TO LOGIN" : "LOGOUT";
-    const userColor = currentUser.isAdmin ? 'var(--gold)' : 'var(--text-main)';
-    const avatarUrl = currentUser.avatar || "https://github.com/identicons/user.png";
-
-    anchor.innerHTML = `
-        <div class="profile-card" style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
-            <img src="${avatarUrl}" alt="pfp" style="width:38px; height:38px; border-radius:50%; border:1px solid var(--electric-green); background:#000;">
-            <div>
-                <div style="font-weight:bold; color:${userColor}; font-size:13px;">
-                    ${currentUser.username} 
-                    ${currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : ''}
-                </div>
-                <a href="/api/auth/logout" style="font-size:10px; color:var(--text-muted); text-decoration:none; text-transform:uppercase;">${logoutLabel}</a>
-            </div>
-        </div>`;
 }
 
 /**
@@ -103,39 +87,72 @@ function startRecoveryPolling() {
 
     recoveryCheckInterval = setInterval(async () => {
         try {
-            // Handshake Check
             const res = await fetch('/api/auth/user');
             const data = await res.json();
+            window.currentUser = data; // Update global reference
 
             if (data.newRestoreAvailable) {
                 const dot = document.getElementById('notif-dot');
                 if (dot) dot.style.display = 'block';
                 
-                // Fetch specific recovery details
+                // Fetch specific recovery details (Key & Path)
                 const recRes = await fetch('/api/user/check-recovery');
                 const recData = await recRes.json();
 
                 if (recData.ready && !recData.claimed) {
-                    const vBox = document.getElementById('verify-box');
-                    if (vBox) vBox.style.display = 'block';
-
-                    // Trigger the Claim Modal
-                    const popup = document.getElementById('claim-popup');
-                    if (popup && popup.style.display !== 'flex') {
-                        document.getElementById('claim-key-display').innerText = recData.key;
-                        popup.style.display = 'flex';
-                        if (window.playNotificationSound) playNotificationSound();
-                    }
+                    triggerClaimUI(recData.key);
                 }
             }
         } catch (e) {
-            console.warn("POLLING: Sync interrupted. Retrying in next cycle...");
+            console.warn("[CORE] Polling sync interrupted.");
         }
     }, 15000); 
 }
 
+function triggerClaimUI(key) {
+    const vBox = document.getElementById('verify-box');
+    if (vBox) vBox.style.display = 'block';
+
+    const popup = document.getElementById('claim-popup');
+    if (popup && popup.style.display !== 'flex') {
+        const display = document.getElementById('claim-key-display');
+        if (display) display.innerText = key;
+        popup.style.display = 'flex';
+        if (window.playNotificationSound) window.playNotificationSound();
+    }
+}
+
 /**
- * --- 5. SYSTEM SECRETS ---
+ * --- 5. UI RENDERERS ---
+ */
+function renderProfile() {
+    const anchor = document.getElementById('profile-anchor');
+    if (!anchor) return;
+
+    const logoutLabel = currentUser.isGuest ? "BACK TO LOGIN" : "DISCONNECT";
+    const userColor = currentUser.isAdmin ? 'var(--gold)' : 'var(--electric-green)';
+    const avatarUrl = currentUser.avatar || "https://github.com/identicons/user.png";
+
+    anchor.innerHTML = `
+        <div class="profile-card">
+            <img src="${avatarUrl}" class="nav-avatar" style="border-color: ${userColor}">
+            <div class="profile-info">
+                <span class="nav-username" style="color:${userColor}">
+                    ${currentUser.username} 
+                    ${currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : ''}
+                </span>
+                <a href="/api/auth/logout" class="nav-logout">${logoutLabel}</a>
+            </div>
+        </div>`;
+}
+
+function handleAnonymousState() {
+    if (window.setupTOSListener) window.setupTOSListener();
+    console.log("[CORE] Standing by at Gateway.");
+}
+
+/**
+ * --- 6. SYSTEM SECRETS ---
  */
 function setupTitleSecret() {
     const title = document.getElementById('app-title');
@@ -144,11 +161,12 @@ function setupTitleSecret() {
     title.onclick = () => {
         titleClicks++;
         if (titleClicks === 5) {
-            alert("SCE v0.3.41: Developer WAN234-sys confirmed. High-Clearance mode active.");
+            console.log("%c[DEV] High-Clearance Mode Confirmed.", "color: #f1c40f");
+            title.style.textShadow = "0 0 10px var(--gold)";
             titleClicks = 0; 
         }
     };
 }
 
-// Kickoff
+// Kickoff Boot Sequence
 init();

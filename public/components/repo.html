@@ -1,0 +1,163 @@
+<div id="repo-component" class="repo-grid">
+    
+    <section class="transmission-unit">
+        <div class="upload-box" id="drop-zone">
+            <label for="cfile" class="custom-file-box">
+                <div class="icon-stack">
+                    <i class="fas fa-cloud-upload-alt main-icon"></i>
+                    <i class="fas fa-shield-alt shield-overlay"></i>
+                </div>
+                <span id="file-label-text" class="status-text">SELECT C SOURCE</span>
+                <small class="sub-text">DRAG & DROP TO INITIALIZE DUAL-SYNC</small>
+            </label>
+            <input type="file" id="cfile" accept=".c" style="display:none;">
+            
+            <div id="upload-progress-container" style="display: none;">
+                <div class="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
+                <small id="upload-status">SYNCHRONIZING...</small>
+            </div>
+
+            <button id="uploadBtn" class="btn-transmit">
+                <i class="fas fa-bolt"></i> INITIALIZE TRANSMISSION
+            </button>
+        </div>
+    </section>
+
+    <section class="explorer-unit">
+        <div class="asset-group">
+            <h3 class="section-title">
+                <i class="fas fa-user-shield"></i> YOUR_SECURED_ASSETS
+                <span class="count-badge" id="my-count">0</span>
+            </h3>
+            <div id="my-file-list" class="file-container">
+                <div class="loading-shimmer">SCANNING_VAULT...</div>
+            </div>
+        </div>
+
+        <div class="asset-group">
+            <h3 class="section-title">
+                <i class="fas fa-globe-americas"></i> COMMUNITY_ARCHIVE
+                <span class="count-badge" id="others-count">0</span>
+            </h3>
+            <div id="others-file-list" class="file-container">
+                </div>
+        </div>
+    </section>
+</div>
+
+<style>
+/* Repository Architecture */
+.repo-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+/* Transmission Unit Styling */
+.transmission-unit {
+    background: var(--card-bg);
+    border: 1px dashed var(--gh-border);
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    transition: 0.3s;
+}
+
+.transmission-unit:hover {
+    border-color: var(--electric-green);
+    background: rgba(46, 204, 113, 0.02);
+}
+
+.icon-stack {
+    position: relative;
+    display: inline-block;
+    margin-bottom: 15px;
+}
+
+.main-icon {
+    font-size: 40px;
+    color: var(--electric-green);
+}
+
+.shield-overlay {
+    position: absolute;
+    bottom: -5px;
+    right: -10px;
+    font-size: 18px;
+    color: var(--gold);
+    background: var(--card-bg);
+    border-radius: 50%;
+    padding: 2px;
+}
+
+.status-text {
+    display: block;
+    font-weight: bold;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.sub-text {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+/* File Container & Shimmer */
+.file-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+    min-height: 50px;
+}
+
+.section-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.count-badge {
+    background: #333;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 9px;
+    color: #fff;
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: #111;
+    border-radius: 2px;
+    margin: 15px 0;
+    overflow: hidden;
+}
+
+#progress-fill {
+    width: 0%;
+    height: 100%;
+    background: var(--electric-green);
+    box-shadow: 0 0 10px var(--electric-green);
+    transition: width 0.3s;
+}
+
+/* Asset Cards */
+.asset-card {
+    background: #0d1117;
+    border: 1px solid var(--gh-border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+</style>

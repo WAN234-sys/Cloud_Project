@@ -1,12 +1,12 @@
-/** SCE v0.3.41 [BETA] - NOTIFICATION INTERCEPTOR **/
+/** SCE v1.0.1 [BETA] - NOTIFICATION & VERIFICATION ENGINE **/
 
 /**
- * 1. ADMIN NOTIFICATION PURGE
- * Logic: Sends a background signal to the server to remove the 
- * ticket from the Admin Queue once the key is validated.
+ * 1. ADMIN QUEUE SYNCHRONIZATION
+ * Clears the processed ticket from the Admin's view once the user 
+ * has successfully entered the claim key.
  */
 async function clearAdminTicket(claimKey) {
-    console.log(`[PROTOCOL] Requesting ticket purge for: ${claimKey}`);
+    console.log(`[PROTOCOL] Synchronizing Vault: Purging ${claimKey}`);
     
     try {
         const response = await fetch('/api/admin/clear-notification', {
@@ -19,32 +19,36 @@ async function clearAdminTicket(claimKey) {
             console.log("[VAULT] Admin queue synchronized. Ticket removed.");
         }
     } catch (err) {
-        console.warn("[VAULT] Background sync failed. Admin may require manual clear.");
+        console.warn("[VAULT] Sync failed. Admin may require manual purge.");
     }
 }
 
 /**
- * 2. PRIMARY VERIFICATION WRAPPER
- * Overrides the standard verification to include the purge sequence.
+ * 2. PRIMARY VERIFICATION HANDSHAKE
+ * Validates the key with the server, clears UI indicators, and triggers
+ * the success sequence for asset reconstitution.
  */
 async function verifyOwnership() {
     const input = document.getElementById('verify_key_input');
+    const claimBtn = document.querySelector('#minibox-ui .btn-transmit');
+    
+    if (!input) return;
     const key = input.value.trim();
 
     if (!key) {
-        alert("SYSTEM ERROR: Claim Key field is empty.");
+        if (window.logToNoA) window.logToNoA("WARN: Empty claim key field.", "ERR");
+        alert("REQUIRED: Enter High-Entropy Claim Key.");
         return;
     }
 
-    // Visual feedback: Start transmission
-    const claimBtn = document.querySelector('#verify-box .btn-transmit');
+    // Phase 1: Visual Feedback
     if (claimBtn) {
         claimBtn.innerText = "LINKING...";
         claimBtn.disabled = true;
     }
 
     try {
-        // 1. Validate the key with the Security Vault
+        // Phase 2: Server-Side Validation
         const res = await fetch('/api/user/verify-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -52,23 +56,35 @@ async function verifyOwnership() {
         });
 
         if (res.ok) {
-            // 2. SUCCESS: Trigger the background notification removal for Admin
+            // Phase 3: Post-Verification Purge
             await clearAdminTicket(key);
             
-            // 3. Clear the local notification dot
+            // Phase 4: UI State Reset
             const dot = document.getElementById('notif-dot');
             if (dot) dot.style.display = 'none';
 
-            // 4. Update local state and trigger Success UI (via verifybox.js)
-            if (window.currentUser) window.currentUser.newRestoreAvailable = false;
+            if (window.currentUser) {
+                window.currentUser.newRestoreAvailable = false;
+            }
+
+            // Phase 5: Success Trigger
+            // Logs to NoA Terminal and opens the Success Modal
+            if (window.logToNoA) {
+                window.logToNoA(`SUCCESS: Asset reconstituted via ${key}.`, "SYS");
+            }
             
             if (typeof showClaimPopup === 'function') {
                 showClaimPopup(key);
             }
 
-            console.log(`[SUCCESS] File recovered via ${key}. Admin notified.`);
+            // Phase 6: Sync Repository View
+            if (window.fetchFiles) window.fetchFiles();
+
         } else {
-            alert("VERIFICATION FAILED: Invalid or expired key.");
+            // Phase 7: Error Handling
+            if (window.logToNoA) window.logToNoA(`REJECTED: Key ${key} is invalid.`, "ERR");
+            alert("ACCESS DENIED: Verification Key invalid or expired.");
+            
             if (claimBtn) {
                 claimBtn.innerText = "CLAIM ASSET";
                 claimBtn.disabled = false;
@@ -76,9 +92,9 @@ async function verifyOwnership() {
         }
     } catch (err) {
         console.error("CRITICAL: Verification Link Failure.", err);
-        alert("CRITICAL: Server sync timeout.");
+        alert("CONNECTION ERROR: Security Vault unreachable.");
     }
 }
 
-// Attach to global scope for minibox.js accessibility
+// Attach to global scope for Minibox integration
 window.verifyOwnership = verifyOwnership;

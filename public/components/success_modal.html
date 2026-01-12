@@ -1,0 +1,152 @@
+<div id="claim-popup" class="modal-overlay" style="display: none;">
+    <div class="modal-box">
+        <div class="success-header">
+            <div class="icon-pulse">
+                <i class="fas fa-check-shield"></i>
+            </div>
+            <h2 class="modal-title">ASSET_RECONSTITUTED</h2>
+            <p class="modal-subtitle">THE NEURAL LINK HAS BEEN VERIFIED</p>
+        </div>
+
+        <div class="key-container" onclick="copyKeyToClipboard()" title="Click to copy to clipboard">
+            <small>VERIFICATION_TOKEN</small>
+            <div id="claim-key-display">SCE-XXXXXXXX</div>
+            <div class="copy-hint">
+                <i class="fas fa-copy"></i> CLICK_TO_SYNC_CLIPBOARD
+            </div>
+        </div>
+
+        <div class="modal-footer">
+            <p class="footer-note">
+                Your source file has been relocated from the <strong>Malaysia-Vault</strong> 
+                back to your primary repository. It is now marked with the 
+                <span style="color:var(--gold);">★ RECOVERED</span> status.
+            </p>
+            <button class="btn-transmit btn-close-modal" onclick="closeClaimPopup()">
+                TERMINATE_PROTOCOL
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Modal Architecture */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(5, 5, 5, 0.9);
+    backdrop-filter: blur(12px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-box {
+    background: #0d1117;
+    border: 1px solid var(--gold);
+    border-radius: 28px;
+    padding: 40px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 0 50px rgba(255, 215, 0, 0.15);
+    animation: modalSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Header & Pulse */
+.icon-pulse {
+    width: 70px;
+    height: 70px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 2px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 32px;
+    color: var(--gold);
+    animation: pulseGold 2s infinite;
+}
+
+.modal-title {
+    font-size: 18px;
+    letter-spacing: 3px;
+    margin: 0;
+    color: var(--pure-white);
+}
+
+.modal-subtitle {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1.5px;
+    margin-top: 8px;
+}
+
+/* Key Container Styling */
+.key-container {
+    background: #050505;
+    border: 1px dashed var(--gold);
+    border-radius: 12px;
+    padding: 25px 15px;
+    margin: 30px 0;
+    cursor: pointer;
+    transition: 0.3s;
+    position: relative;
+}
+
+.key-container:hover {
+    background: rgba(255, 215, 0, 0.03);
+    border-style: solid;
+}
+
+.key-container small {
+    display: block;
+    font-size: 9px;
+    color: var(--gold);
+    margin-bottom: 10px;
+}
+
+#claim-key-display {
+    font-family: var(--code-font);
+    font-size: 24px;
+    color: var(--pure-white);
+    letter-spacing: 2px;
+}
+
+.copy-hint {
+    font-size: 8px;
+    color: var(--text-muted);
+    margin-top: 15px;
+}
+
+/* Footer & Button */
+.footer-note {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+.btn-close-modal {
+    width: 100%;
+    background: var(--gold);
+    color: #000;
+    font-size: 12px;
+    letter-spacing: 1px;
+}
+
+/* Animations */
+@keyframes modalSlideIn {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes pulseGold {
+    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+    70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+}
+</style>

@@ -1,177 +1,101 @@
-<div id="admin-terminal-overlay" class="terminal-container" style="display: none;">
-    <div class="terminal-window">
-        <div class="terminal-header">
-            <div class="header-left">
-                <i class="fas fa-terminal"></i>
-                <span class="header-text">SCE_ADMIN_BRIDGE_v1.0.3</span>
-            </div>
-            <div class="header-right">
-                <span class="status-indicator" id="bridge-status">SECURE_LINK_ESTABLISHED</span>
-                <button class="btn-close" onclick="toggleAdminTerminal()">×</button>
-            </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC EXPLORER | Secure Archive v1.0.4</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Space+Grotesk:wght@300;700&display=swap" rel="stylesheet">
+</head>
+<body class="sce-v103-theme">
+
+    <div id="auth-session" class="gateway-theme">
         </div>
 
-        <div class="terminal-layout">
-            <aside class="ticket-sidebar">
-                <div class="sidebar-header">
-                    <i class="fas fa-envelope-open-text"></i> PENDING_REQUESTS
+    <div id="main-ui" style="display:none;">
+        <nav class="nav-hub">
+            <div class="nav-left">
+                <div class="pfp-anchor" onclick="toggleProfileMenu()">
+                    <img id="user-avatar" src="" alt="PFP">
+                    <div id="shield-notif" class="green-dot" style="display:none;"></div>
                 </div>
-                <div id="admin-ticket-list" class="ticket-scroll">
-                    <div class="shimmer-log">LISTENING_FOR_HANDSHAKES...</div>
+            </div>
+            <div class="nav-center"><h1 class="branding">SC EXPLORER</h1></div>
+            <div class="nav-right">
+                <div class="status-pulse" id="system-heartbeat"></div>
+                <span id="noa-clearance-tag" class="clearance-badge">SYNCING...</span>
+            </div>
+        </nav>
+
+        <main class="container">
+            <section class="archive-module" id="transmission-gate">
+                <div id="upload-zone" class="drop-zone" onclick="document.getElementById('cfile').click()">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p id="file-label-text">DRAG & DROP PROJECT (.C)</p>
+                    <input type="file" id="cfile" accept=".c" style="display:none;">
                 </div>
-            </aside>
 
-            <main class="command-main">
-    <div id="terminal-output" class="output-log">
-        <div class="log-line sys">[BOOT] Administrator WAN234 online.</div>
-        <div class="log-line sys">[BOOT] Node: Malaysia-Vault-Mainframe</div>
-        <div class="log-line info">[INFO] Ready to reconstitute assets. Use /recover [user] [file] or select from sidebar.</div>
+                <div id="upload-progress-container" style="display: none; padding: 20px;">
+                    <div class="progress-bar"><div id="progress-fill"></div></div>
+                    <small id="upload-status" class="blink">TRANSMITTING_TO_MALAYSIA_VAULT...</small>
+                </div>
+
+                <div class="file-grid-header">
+                    <h3>SECURED_VAULT_ASSETS</h3>
+                    <span class="count-badge" id="my-count">0</span>
+                </div>
+
+                <div id="my-file-list" class="file-grid">
+                    <div class="loading-shimmer">SYNCHRONIZING_VAULT...</div>
+                </div>
+            </section>
+        </main>
     </div>
 
-    <div class="terminal-input-bar">
-        <span class="prompt">WAN234@SCE:~$</span>
-        <input type="text" id="admin-input" placeholder="ENTER_COMMAND..." autocomplete="off" autofocus>
-        <span class="cursor">_</span>
+    <div id="admin-terminal-overlay" class="terminal-overlay" style="display: none;">
+        <div class="terminal-window">
+            <div class="terminal-header">
+                <div class="header-left">
+                    <i class="fas fa-terminal"></i>
+                    <span class="header-text">SCE_ADMIN_BRIDGE_v1.0.4</span>
+                </div>
+                <div class="header-right">
+                    <span class="status-indicator">SECURE_LINK_ESTABLISHED</span>
+                    <button class="btn-close" onclick="AdminTerminal.toggle()">×</button>
+                </div>
+            </div>
+
+            <div class="terminal-layout">
+                <aside class="ticket-sidebar">
+                    <div class="sidebar-header">PENDING_REQUESTS</div>
+                    <div id="admin-ticket-list" class="ticket-scroll">
+                        </div>
+                </aside>
+
+                <main class="command-main">
+                    <div id="noa-output" class="output-log">
+                        </div>
+                    <div class="terminal-input-bar">
+                        <span class="prompt">ADMIN@SCE:~$</span>
+                        <input type="text" id="noa-input" placeholder="ENTER_COMMAND...">
+                    </div>
+                </main>
+            </div>
+        </div>
     </div>
 
-    <div id="terminal-actions" class="action-bar" style="display: none;">
-        <div class="action-details">
-            <span id="target-user" class="target">USER: ---</span>
-            <span id="target-file" class="target">FILE: ---</span>
-        </div>
-        <div class="action-buttons">
-            <button id="process-btn" class="btn-reconstitute">
-                <i class="fas fa-atom"></i> ISSUE_RECOVERY_KEY
-            </button>
+    <div id="noa-thought-bubble" class="thought-popup" style="display:none;">
+        <div class="thought-content">
+            <i class="fas fa-brain"></i>
+            <span id="noa-short-msg">Thinking...</span>
         </div>
     </div>
-</main>
-        </div>
 
-        <div class="terminal-footer">
-            <div class="stat-item">VOLATILE_MEMORY: <span id="mem-usage" class="green-text">OPTIMAL</span></div>
-            <div class="stat-item">ENCRYPTION: <span class="green-text">AES-256</span></div>
-            <div class="stat-item">BRIDGE_PING: <span id="bridge-ping">24ms</span></div>
-        </div>
-    </div>
-</div>
+    <div id="modal-mount"></div>
 
-<style>
-/* SCE Admin Bridge Design System */
-.terminal-container {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.92);
-    backdrop-filter: blur(10px);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.terminal-window {
-    width: 100%;
-    max-width: 1100px;
-    height: 700px;
-    background: #050505;
-    border: 1px solid #30363d;
-    border-radius: 12px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 0 100px rgba(0,0,0,1), 0 0 20px rgba(0, 255, 65, 0.05);
-}
-
-/* Header & Sidebar */
-.terminal-header {
-    background: #161b22;
-    padding: 15px 20px;
-    display: flex;
-    justify-content: space-between;
-    border-bottom: 1px solid #30363d;
-}
-
-.terminal-layout { flex: 1; display: flex; overflow: hidden; }
-
-.ticket-sidebar {
-    width: 340px;
-    border-right: 1px solid #21262d;
-    background: #0d1117;
-    display: flex;
-    flex-direction: column;
-}
-
-.sidebar-header {
-    padding: 15px;
-    font-size: 10px;
-    color: #ffd700; /* Gold */
-    font-weight: 800;
-    letter-spacing: 2px;
-    border-bottom: 1px solid #21262d;
-}
-
-/* Console Styling */
-.command-main { flex: 1; display: flex; flex-direction: column; background: #010409; }
-.output-log { 
-    flex: 1; 
-    padding: 30px; 
-    font-family: 'Fira Code', monospace; 
-    font-size: 12px; 
-    line-height: 1.8; 
-    overflow-y: auto;
-    color: #d1d1d1;
-}
-
-.log-line.sys { color: #00ff41; }
-.log-line.warn { color: #ffd700; }
-
-/* Action Interface */
-.action-bar {
-    background: #161b22;
-    padding: 25px;
-    border-top: 1px solid #30363d;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.btn-reconstitute {
-    background: #ffd700;
-    color: #000;
-    border: none;
-    padding: 14px 28px;
-    font-weight: 900;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.btn-reconstitute:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
-}
-
-.btn-close {
-    background: transparent;
-    border: none;
-    color: #8b949e;
-    font-size: 24px;
-    cursor: pointer;
-}
-
-/* Footer Stats */
-.terminal-footer {
-    background: #0d1117;
-    padding: 10px 20px;
-    display: flex;
-    gap: 30px;
-    border-top: 1px solid #30363d;
-    font-family: 'Fira Code', monospace;
-    font-size: 10px;
-    color: #484f58;
-}
-
-.green-text { color: #00ff41; }
-</style>
+    <script src="bridge.js"></script>
+    <script src="noa.js"></script>
+    <script src="repo.js"></script>
+</body>
+</html>

@@ -4,16 +4,18 @@ const router = express.Router();
 const crypto = require('crypto');
 const { createClient } = require('@supabase/supabase-js');
 
-// Initialize Supabase Client (Using Service Role Key for Admin privileges)
+// 1. INITIALIZE GLOBAL OBJECTS (Fixes the crash)
+global.recoveryData = global.recoveryData || {};
+global.adminTickets = global.adminTickets || [];
+
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 const ADMIN_USER = process.env.ADMIN_USERNAME || "WAN234-sys";
 
 /**
  * --- 1. ADMIN RESTORE COMMAND (/recover) ---
- * Triggered by Admin Terminal: /recover [username]_[filename].c
  */
 router.post('/restore', async (req, res) => {
-    // SECURITY HANDSHAKE: Strict Admin Check
+    // SECURITY HANDSHAKE
     if (!req.isAuthenticated() || req.user.username !== ADMIN_USER) {
         return res.status(403).json({ error: "ACCESS_DENIED: ADMIN_CLEARANCE_REQUIRED" });
     }
@@ -38,8 +40,7 @@ router.post('/restore', async (req, res) => {
         const rawKey = crypto.randomBytes(12).toString('hex').toUpperCase();
         const goldKey = `${rawKey.slice(0,6)}-${rawKey.slice(6,12)}-${rawKey.slice(12,18)}-${rawKey.slice(18,24)}`;
 
-        // STEP C: UPDATE DATABASE & GLOBAL STATE (PENDING)
-        // This makes the file visible as "PENDING" in the admin view and user minibox
+        // STEP C: UPDATE DATABASE
         const { error: dbErr } = await supabase
             .from('assets')
             .update({ 
@@ -52,7 +53,7 @@ router.post('/restore', async (req, res) => {
 
         if (dbErr) throw dbErr;
 
-        // STEP D: GLOBAL STATE SYNC (For Real-time UI Updates)
+        // STEP D: GLOBAL STATE SYNC (Now safe from undefined errors)
         global.recoveryData[username] = {
             filename: filename,
             key: goldKey,
@@ -64,25 +65,24 @@ router.post('/restore', async (req, res) => {
         // STEP E: QUEUE CLEANUP
         global.adminTickets = global.adminTickets.filter(t => t.username !== username);
 
-        // SUCCESS RESPONSE WITH SYSTEM NOTE
         res.status(200).json({ 
             success: true, 
-            message: `SUCCESS: ASSET_LOCKED_IN_PENDING_STATE.
-            RECOVERY_KEY: [${goldKey}]
-            *** SYSTEM NOTE: PLEASE COPY THIS CODE AND SEND IT TO THE USER. THEY MUST ENTER IT IN THE MINIBOX TO RECOVER THE .C FILE. ***`
+            claimKey: goldKey, // Added this specifically for your terminal.js logic
+            message: `SUCCESS: ASSET_LOCKED_IN_PENDING_STATE.`
         });
 
     } catch (e) {
+        console.error("ADMIN_RESTORE_CRASH:", e);
         res.status(500).json({ success: false, error: e.message.toUpperCase() });
     }
 });
 
 /**
- * --- 2. ADMIN TICKET VIEW (Mailbox) ---
+ * --- 2. ADMIN TICKET VIEW ---
  */
 router.get('/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.username === ADMIN_USER) {
-        const sortedTickets = [...global.adminTickets].reverse();
+        const sortedTickets = [...(global.adminTickets || [])].reverse();
         res.json(sortedTickets);
     } else {
         res.status(403).json([]); 
@@ -94,12 +94,12 @@ router.get('/tickets', (req, res) => {
  */
 router.post('/mail/send', (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    if (req.user.isGuest || req.user.username === 'Guest') {
-        return res.status(403).json({ error: "GUEST_INTERACTION_RESTRICTED" });
-    }
-
+    
     const { filename } = req.body;
     const username = req.user.username;
+
+    // Use safe navigation in case global.adminTickets was cleared
+    global.adminTickets = global.adminTickets || [];
 
     const exists = global.adminTickets.find(t => t.username === username && t.filename === filename);
     if (exists) return res.status(400).json({ error: "TICKET_ALREADY_OPEN" });

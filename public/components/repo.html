@@ -1,208 +1,83 @@
-<div id="repo-component" class="repo-grid">
-    
-    <section class="transmission-unit" id="transmission-gate">
-        <div class="upload-box" id="drop-zone">
-            <label for="cfile" class="custom-file-box" id="file-label-gate">
-                <div class="icon-stack">
-                    <i class="fas fa-cloud-upload-alt main-icon"></i>
-                    <i class="fas fa-shield-alt shield-overlay"></i>
-                </div>
-                <span id="file-label-text" class="status-text">SELECT C SOURCE</span>
-                <small class="sub-text">DRAG & DROP TO INITIALIZE DUAL-SYNC</small>
-            </label>
-            <input type="file" id="cfile" accept=".c" style="display:none;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SC EXPLORER | VAULT_SYSTEM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Space+Grotesk:wght@300;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="sce-dark-theme">
+
+    <div id="nav-mount"></div>
+
+    <main class="main-wrapper">
+        <div class="content-container">
             
-            <div id="upload-progress-container" style="display: none;">
-                <div class="progress-bar">
-                    <div id="progress-fill"></div>
-                </div>
-                <small id="upload-status" class="blink">SYNCHRONIZING_WITH_VAULT...</small>
+            <div id="repo-component" class="repo-grid">
+                
+                <section class="transmission-unit" id="transmission-gate">
+                    <div class="upload-box" id="drop-zone">
+                        <label for="cfile" class="custom-file-box" id="file-label-gate">
+                            <div class="icon-stack">
+                                <i class="fas fa-cloud-upload-alt main-icon"></i>
+                                <i class="fas fa-shield-alt shield-overlay"></i>
+                            </div>
+                            <span id="file-label-text" class="status-text">SELECT_C_SOURCE</span>
+                            <small class="sub-text">DRAG & DROP TO INITIALIZE DUAL-SYNC</small>
+                        </label>
+                        <input type="file" id="cfile" accept=".c" style="display:none;">
+                        
+                        <div id="upload-progress-container" style="display: none; padding: 20px 15% 0 15%;">
+                            <div class="progress-bar">
+                                <div id="progress-fill"></div>
+                            </div>
+                            <small id="upload-status" class="blink">SYNCHRONIZING_WITH_VAULT...</small>
+                        </div>
+
+                        <button id="uploadBtn" class="btn-transmit" onclick="Repo.handleUpload()">
+                            <i class="fas fa-bolt"></i> INITIALIZE_TRANSMISSION
+                        </button>
+                    </div>
+                    
+                    <div id="guest-lock-msg" class="lock-overlay" style="display: none;">
+                        <i class="fas fa-lock"></i>
+                        <p>IDENTITY_REQUIRED: Login via GitHub to transmit assets.</p>
+                    </div>
+                </section>
+
+                <div class="divider-line"></div>
+
+                <section class="explorer-unit" id="repo-container">
+                    
+                    <div class="asset-group">
+                        <h3 class="section-title">
+                            <i class="fas fa-user-shield"></i> YOUR_SECURED_ASSETS
+                            <span class="count-badge" id="my-count">0</span>
+                        </h3>
+                        <div id="my-file-list" class="file-container">
+                            <div class="loading-shimmer">SCANNING_VAULT...</div>
+                        </div>
+                    </div>
+
+                    <div class="asset-group" style="margin-top: 50px;">
+                        <h3 class="section-title">
+                            <i class="fas fa-globe-americas"></i> COMMUNITY_ARCHIVE
+                            <span class="count-badge" id="others-count">0</span>
+                        </h3>
+                        <div id="others-file-list" class="file-container">
+                            </div>
+                    </div>
+                </section>
             </div>
-
-            <button id="uploadBtn" class="btn-transmit">
-                <i class="fas fa-bolt"></i> INITIALIZE TRANSMISSION
-            </button>
         </div>
-        
-        <div id="guest-lock-msg" style="display: none;" class="lock-overlay">
-            <i class="fas fa-lock"></i>
-            <p>IDENTITY_REQUIRED: Login via GitHub to transmit assets.</p>
-        </div>
-    </section>
+    </main>
 
-    <section class="explorer-unit" id="repo-container">
-        
-        <div class="asset-group">
-            <h3 class="section-title">
-                <i class="fas fa-user-shield"></i> YOUR_SECURED_ASSETS
-                <span class="count-badge" id="my-count">0</span>
-            </h3>
-            <div id="my-file-list" class="file-container">
-                <div class="loading-shimmer">SCANNING_VAULT...</div>
-            </div>
-        </div>
+    <div id="noa-mount"></div>
 
-        <div class="asset-group">
-            <h3 class="section-title">
-                <i class="fas fa-globe-americas"></i> COMMUNITY_ARCHIVE
-                <span class="count-badge" id="others-count">0</span>
-            </h3>
-            <div id="others-file-list" class="file-container">
-                </div>
-        </div>
-    </section>
-</div>
-
-<style>
-/* Repository Component Styling - Synchronized White/Green */
-.repo-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    margin-top: 20px;
-}
-
-.transmission-unit {
-    background: #0d1117;
-    border: 1px dashed #30363d;
-    border-radius: 12px;
-    padding: 40px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    transition: 0.3s;
-}
-
-.transmission-unit:hover {
-    border-color: #00ff41;
-    background: rgba(0, 255, 65, 0.02);
-}
-
-/* Icon stack logic for the Vault Shield icon */
-.icon-stack {
-    position: relative;
-    display: inline-block;
-    margin-bottom: 15px;
-}
-
-.main-icon {
-    font-size: 48px;
-    color: #00ff41;
-    filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.3));
-}
-
-.shield-overlay {
-    position: absolute;
-    bottom: -5px;
-    right: -10px;
-    font-size: 20px;
-    color: #ffd700; /* Gold */
-    background: #0d1117;
-    border-radius: 50%;
-    padding: 4px;
-    border: 2px solid #0d1117;
-}
-
-.status-text {
-    display: block;
-    font-weight: 900;
-    font-size: 14px;
-    letter-spacing: 2px;
-    color: #ffffff;
-}
-
-.sub-text {
-    font-size: 10px;
-    color: #8b949e;
-    letter-spacing: 1px;
-}
-
-/* Transmission Button */
-.btn-transmit {
-    margin-top: 20px;
-    background: #00ff41;
-    color: #000;
-    border: none;
-    padding: 12px 24px;
-    font-weight: 800;
-    font-size: 11px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.btn-transmit:hover {
-    box-shadow: 0 0 20px #00ff41;
-    transform: translateY(-2px);
-}
-
-/* File Container Grid */
-.file-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
-    min-height: 80px;
-}
-
-.section-title {
-    font-size: 10px;
-    color: #8b949e;
-    letter-spacing: 3px;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.count-badge {
-    background: #161b22;
-    padding: 2px 8px;
-    border-radius: 10px;
-    color: #00ff41;
-    border: 1px solid #30363d;
-}
-
-/* Guest Mode Lockdown State */
-.guest-lock #drop-zone {
-    filter: blur(5px) grayscale(1);
-    pointer-events: none;
-    opacity: 0.3;
-}
-
-.lock-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #ff4d4d;
-    font-weight: bold;
-    z-index: 5;
-    text-align: center;
-}
-
-/* Shimmer animation for loading files */
-.loading-shimmer {
-    font-family: 'Fira Code', monospace;
-    font-size: 10px;
-    color: #484f58;
-}
-
-.progress-bar {
-    width: 100%;
-    height: 4px;
-    background: #161b22;
-    border-radius: 10px;
-    margin: 15px 0;
-    overflow: hidden;
-}
-
-#progress-fill {
-    width: 0%;
-    height: 100%;
-    background: #00ff41;
-    transition: width 0.3s;
-}
-
-.blink { animation: sce-blink 1.5s infinite; }
-@keyframes sce-blink { 50% { opacity: 0.3; } }
-</style>
+    <script src="bridge.js"></script>
+    <script src="noa.js"></script>
+    <script src="repo.js"></script>
+</body>
+</html>

@@ -1,49 +1,51 @@
 <div id="noa-wrapper" class="noa-fixed-layer">
     
-    <div id="noa-avatar-container" onclick="toggleNoATerminal()">
+    <div id="noa-avatar-container" onclick="NoA.toggle()">
         <div class="noa-halo" id="noa-halo-ring"></div>
         <div class="noa-core" id="noa-main-core">
             <i class="fas fa-brain"></i>
         </div>
         
         <div id="noa-thought-bubble" class="thought-bubble" style="display: none;">
-            <span id="noa-short-msg">SYNCING_LOGIC...</span>
+            <span id="noa-short-msg">NEURAL_LINK_ESTABLISHED</span>
         </div>
     </div>
 
     <div id="noa-terminal" class="noa-terminal-overlay" style="display: none;">
         <div class="terminal-header">
             <div class="terminal-title">
-                <i class="fas fa-microchip"></i> NoA_DIAGNOSTIC_v1.0.3
+                <i class="fas fa-microchip"></i> NoA_DIAGNOSTIC_v1.0.4
                 <span id="noa-clearance-tag" class="clearance-badge">UNAUTHORIZED</span>
             </div>
             <div class="terminal-controls">
-                <span class="control-btn minimize" onclick="toggleNoATerminal()">_</span>
-                <span class="control-btn close" onclick="toggleNoATerminal()">×</span>
+                <span class="control-btn minimize" onclick="NoA.toggle()">_</span>
+                <span class="control-btn close" onclick="NoA.toggle()">×</span>
             </div>
         </div>
 
         <div id="noa-output" class="terminal-body">
             <div class="log-entry">
                 <span class="log-time">[00:00:00]</span>
-                <span class="log-sys">[SYS]</span> Neural link standby.
+                <span class="log-sys">[SYS]</span> Neural link standby. User identification required.
             </div>
         </div>
 
         <div class="terminal-footer">
             <span class="blink-cursor">></span>
             <input type="text" id="noa-input" placeholder="Query NoA logic..." autocomplete="off">
-            <button id="noa-send-btn" class="terminal-send"><i class="fas fa-arrow-up"></i></button>
+            <button id="noa-send-btn" class="terminal-send" onclick="NoA.sendQuery()">
+                <i class="fas fa-arrow-up"></i>
+            </button>
         </div>
     </div>
 </div>
 
 <style>
-/* NoA Component Styling - Synchronized White & Electric Green */
+/* NoA Component Styling - v1.0.4 */
 .noa-fixed-layer {
     position: fixed;
     bottom: 30px;
-    right: 30px; /* Moved to Right to clear Minibox on the Left */
+    right: 30px; 
     z-index: 5000;
 }
 
@@ -55,16 +57,14 @@
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-#noa-avatar-container:hover {
-    transform: scale(1.1);
-}
+#noa-avatar-container:hover { transform: scale(1.1); }
 
 .noa-core {
     position: absolute;
     width: 100%;
     height: 100%;
     background: #0d1117;
-    border: 2px solid #00ff41; /* Electric Green */
+    border: 2px solid #00ff41;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -77,66 +77,69 @@
 
 .noa-halo {
     position: absolute;
-    top: -6px;
-    left: -6px;
-    right: -6px;
-    bottom: -6px;
+    top: -6px; left: -6px; right: -6px; bottom: -6px;
     border: 1px solid rgba(0, 255, 65, 0.4);
     border-radius: 50%;
     animation: rotate-halo 10s linear infinite;
 }
 
-/* Thought Bubble (Appears on Hover or Notification) */
 .thought-bubble {
     position: absolute;
-    right: 75px; /* Points inward from the right */
+    right: 75px;
     top: 50%;
     transform: translateY(-50%);
     background: #00ff41;
     color: #000;
     padding: 6px 12px;
-    border-radius: 15px 15px 0 15px;
+    border-radius: 12px 12px 0 12px;
     font-family: 'Fira Code', monospace;
     font-size: 10px;
     font-weight: 800;
     white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
-/* Terminal Styling */
 .noa-terminal-overlay {
     position: fixed;
     bottom: 100px;
     right: 30px;
     width: 380px;
     height: 450px;
-    background: #0d1117;
+    background: rgba(13, 17, 23, 0.95);
     border: 1px solid #30363d;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(15px);
     overflow: hidden;
 }
 
 .terminal-header {
     background: #161b22;
-    padding: 10px 15px;
+    padding: 12px 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid #30363d;
 }
 
-.clearance-badge {
-    font-size: 8px;
-    background: #21262d;
-    color: #8b949e;
-    padding: 2px 8px;
-    border-radius: 4px;
-    border: 1px solid #30363d;
-    margin-left: 8px;
+.terminal-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
 }
+
+.terminal-controls .control-btn {
+    cursor: pointer;
+    margin-left: 10px;
+    color: #8b949e;
+    transition: color 0.2s;
+}
+
+.terminal-controls .control-btn:hover { color: #00ff41; }
 
 .terminal-body {
     flex: 1;
@@ -145,18 +148,15 @@
     font-family: 'Fira Code', monospace;
     font-size: 11px;
     color: #c9d1d9;
-    background: #0d1117;
+    scrollbar-width: thin;
 }
 
-.log-sys { color: #00ff41; font-weight: bold; }
-.log-time { color: #484f58; margin-right: 5px; }
-
 .terminal-footer {
-    padding: 10px 15px;
-    background: #0d1117;
+    padding: 12px;
+    background: #161b22;
     display: flex;
     align-items: center;
-    border-top: 1px solid #30363d;
+    gap: 10px;
 }
 
 #noa-input {
@@ -166,18 +166,26 @@
     color: #00ff41;
     outline: none;
     font-family: 'Fira Code', monospace;
-    font-size: 12px;
 }
 
-/* Restricted / Guest State */
-.noa-restricted .noa-core {
-    border-color: #484f58;
-    color: #484f58;
-    filter: grayscale(1);
+/* FIXED: Placeholder visibility */
+#noa-input::placeholder { color: rgba(0, 255, 65, 0.3); }
+
+.terminal-send {
+    background: transparent;
+    border: none;
+    color: #8b949e;
+    cursor: pointer;
+    transition: 0.2s;
 }
 
-@keyframes rotate-halo {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.terminal-send:hover { color: #00ff41; }
+
+.blink-cursor {
+    color: #00ff41;
+    animation: blink 1s step-end infinite;
 }
+
+@keyframes rotate-halo { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes blink { 50% { opacity: 0; } }
 </style>

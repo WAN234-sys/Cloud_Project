@@ -1,41 +1,40 @@
-/** SCE v1.0.3 [BETA] - CORE CLIENT LOGIC **/
+/** SCE v1.0.4 [STABLE] - CORE CLIENT LOGIC **/
 
 const SCE = {
     shieldClicks: 0,
+    clickTimer: null, // Track timer to prevent race conditions
     terminalActive: false,
 
     init: async () => {
-        console.log("SCE v1.0.3 [BETA] Initializing...");
+        console.log("SCE v1.0.4 [STABLE] Initializing...");
         await SCE.syncIdentity();
         SCE.setupDragAndDrop();
         SCE.setupKeybinds();
         SCE.setupGuestHover();
     },
 
-    // 1. IDENTITY SYNC: Handles 32px PFP and Shield Visibility
+    // 1. IDENTITY SYNC
     syncIdentity: async () => {
         try {
             const res = await fetch('/api/auth/status');
             const data = await res.json();
 
             if (data.authenticated) {
-                // Show Dashboard, Hide Login
                 document.getElementById('auth-session').style.display = 'none';
                 document.getElementById('main-ui').style.display = 'block';
 
-                // Set PFP (32px handled in CSS)
                 const avatar = document.getElementById('user-avatar');
-                if (avatar) avatar.src = data.user.avatar;
+                if (avatar) avatar.src = data.user.avatar || '/assets/default-avatar.png';
 
-                // INVISIBLE TO ADMINS: Hide shield if user is Admin
+                // Ensure ID matches your HTML trigger
                 const shield = document.getElementById('recovery-shield-trigger');
                 if (data.user.isAdmin && shield) {
                     shield.style.display = 'none';
                 }
 
-                // Green Notification Dot
                 if (data.recoveryReady) {
-                    document.getElementById('shield-notif').style.display = 'block';
+                    const dot = document.getElementById('shield-notif');
+                    if (dot) dot.style.display = 'block';
                 }
             }
         } catch (err) {
@@ -43,22 +42,30 @@ const SCE = {
         }
     },
 
-    // 2. TRIPLE-CLICK SHIELD: Opens Recovery Mini-Box
+    // 2. TRIPLE-CLICK LOGIC (Improved)
     handleShieldClick: () => {
+        // Clear existing timer
+        if (SCE.clickTimer) clearTimeout(SCE.clickTimer);
+
         SCE.shieldClicks++;
+
         if (SCE.shieldClicks === 3) {
             const miniBox = document.getElementById('recovery-mini-box');
             if (miniBox) {
-                miniBox.style.display = 'block';
-                miniBox.classList.add('center-left-popup');
+                const isHidden = miniBox.style.display === 'none' || miniBox.style.display === '';
+                miniBox.style.display = isHidden ? 'block' : 'none';
+                if (isHidden) miniBox.classList.add('center-left-popup');
             }
             SCE.shieldClicks = 0;
+        } else {
+            // Reset if 3rd click doesn't happen within 800ms (standard triple-click speed)
+            SCE.clickTimer = setTimeout(() => {
+                SCE.shieldClicks = 0;
+            }, 800);
         }
-        // Auto-reset if not clicked fast enough
-        setTimeout(() => { SCE.shieldClicks = 0; }, 2000);
     },
 
-    // 3. CLOUD UPLOAD: "upload project" Drag-and-Drop
+    // 3. CLOUD UPLOAD
     setupDragAndDrop: () => {
         const zone = document.getElementById('upload-zone');
         if (!zone) return;
@@ -69,34 +76,46 @@ const SCE = {
 
         zone.addEventListener('drop', async (e) => {
             const file = e.dataTransfer.files[0];
-            
-            // Per-User Filename Safety check
+            if (!file) return;
+
             const formData = new FormData();
             formData.append('file', file);
 
-            const res = await fetch('/api/cloud/upload', {
-                method: 'POST',
-                body: formData
-            });
+            try {
+                const res = await fetch('/api/cloud/upload', {
+                    method: 'POST',
+                    body: formData
+                });
 
-            if (res.ok) alert(`Project [${file.name}] synced to Your Archive.`);
+                if (res.ok) {
+                    alert(`Project [${file.name}] synced to Your Archive.`);
+                }
+            } catch (err) {
+                console.error("Upload failed:", err);
+            }
         });
     },
 
-    // 4. KEYBINDS: Shift + Enter for Terminal
+    // 4. KEYBINDS (Updated ID for Admin Terminal)
     setupKeybinds: () => {
         window.addEventListener('keydown', (e) => {
             if (e.shiftKey && e.key === 'Enter') {
-                const term = document.getElementById('terminal-overlay');
+                // Ensure this matches the ID in terminal.html
+                const term = document.getElementById('admin-terminal-overlay');
                 if (term) {
-                    SCE.terminalActive = !SCE.terminalActive;
-                    term.style.display = SCE.terminalActive ? 'flex' : 'none';
+                    const isHidden = term.style.display === 'none' || term.style.display === '';
+                    term.style.display = isHidden ? 'flex' : 'none';
+                    
+                    // Trigger terminal logic if it exists
+                    if (isHidden && typeof window.refreshAdminTickets === 'function') {
+                        window.refreshAdminTickets();
+                    }
                 }
             }
         });
     },
 
-    // 5. GUEST HOVER: Show read-only note
+    // 5. GUEST HOVER
     setupGuestHover: () => {
         const guestBtn = document.querySelector('.btn-guest');
         const note = document.querySelector('.guest-tooltip');
@@ -110,7 +129,15 @@ const SCE = {
 // Global Listeners
 document.addEventListener('DOMContentLoaded', SCE.init);
 
+// Map the global shield click to the SCE object
+function handleShieldClick() {
+    SCE.handleShieldClick();
+}
+
 function toggleProfileMenu() {
     const menu = document.getElementById('profile-ext');
-    if (menu) menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    if (menu) {
+        const isHidden = menu.style.display === 'none' || menu.style.display === '';
+        menu.style.display = isHidden ? 'block' : 'none';
+    }
 }

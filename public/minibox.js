@@ -1,9 +1,10 @@
 /** SCE v1.0.4 - MINIBOX & VERIFICATION ENGINE [STABLE] **/
+
 let mbClicks = 0;
 let mbTimer;
 
 /**
- * 1. TRIPLE-CLICK TRIGGER
+ * 1. TRIPLE-CLICK TRIGGER (HEADER ONLY)
  */
 function handleMiniboxClick() {
     mbClicks++;
@@ -15,12 +16,12 @@ function handleMiniboxClick() {
         if (!container) return;
 
         const isHidden = container.style.display === 'none' || container.style.display === '';
-        container.style.display = isHidden ? 'block' : 'none';
+        container.style.display = isHidden ? 'flex' : 'none';
         
         if (isHidden) {
             renderMiniboxContent();
             const dot = document.getElementById('minibox-pulse');
-            if (dot) dot.classList.remove('pulse-red');
+            if (dot) dot.style.background = "#00ff41"; 
         }
         mbClicks = 0;
     }
@@ -28,7 +29,6 @@ function handleMiniboxClick() {
 
 /**
  * 2. DYNAMIC CONTENT RENDERING
- * Automated to fetch the key for the user once Admin approves.
  */
 async function renderMiniboxContent() {
     const vBox = document.getElementById('verify-box'); 
@@ -40,49 +40,52 @@ async function renderMiniboxContent() {
         userDisplay.style.color = user?.isAdmin ? "#ffd700" : "#00ff41";
     }
 
-    // A. ADMIN VIEW: Manage incoming requests
     if (user?.isAdmin) {
         vBox.innerHTML = `
             <h4 class="section-label">ADMIN_TICKET_QUEUE</h4>
-            <div id="ticket-list" style="font-size:9px; color:#8b949e; max-height:150px; overflow-y:auto;">
-                Syncing Encrypted Requests...
+            <div id="ticket-list" style="font-size:9px; color:#8b949e; max-height:150px; overflow-y:auto; padding-top:10px;">
+                <i class="fas fa-sync fa-spin"></i> Syncing Encrypted Requests...
             </div>`;
         fetchTicketQueue();
     } 
-    
-    // B. USER VIEW: Automatically retrieve the 6-6-6-6 key from the vault
     else {
         try {
-            // Updated to check for pending keys assigned to this user
             const res = await fetch('/api/vault/check-recovery'); 
             const data = await res.json();
 
             if (data.pending) {
                 vBox.innerHTML = `
-                    <h4 class="section-label" style="color:#ffd700;">RECOVERY_CODE_RECEIVED</h4>
-                    <p class="section-desc">Your key for <b>${data.filename}</b> has been issued:</p>
-                    <div id="display-gold-key" style="background:#0d1117; border:1px solid #00ff41; color:#00ff41; padding:10px; font-family:monospace; text-align:center; margin-bottom:10px; font-size:11px; letter-spacing:1px;">
+                    <h4 class="section-label" style="color:#ffd700;">6-6-6-6_CODE_RECEIVED</h4>
+                    <p class="section-desc">Key issued for: <b>${data.filename}</b></p>
+                    <div id="display-gold-key" style="background:#000; border:1px solid #ffd700; color:#ffd700; padding:10px; font-family:'Fira Code'; text-align:center; margin-bottom:10px; font-size:11px; letter-spacing:1px; font-weight:bold; word-break: break-all;">
                         ${data.key}
                     </div>
-                    <button onclick="verifyOwnership('${data.key}')" style="width:100%; background:#00ff41; color:#000; border:none; padding:8px; cursor:pointer; font-weight:bold; font-size:10px;">INITIALIZE_RECONSTITUTION</button>
+                    <button onclick="verifyOwnership('${data.key}')" class="btn-claim" style="background:#00ff41;">
+                        INITIALIZE_RECONSTITUTION
+                    </button>
                 `;
             } else {
                 vBox.innerHTML = `<p class="section-desc">No active recovery protocols detected.</p>`;
             }
         } catch (e) {
-            vBox.innerHTML = `<p class="section-desc" style="color:#ff4d4d;">VAULT_OFFLINE</p>`;
+            vBox.innerHTML = `<p class="section-desc" style="color:#ff4d4d;">VAULT_CONNECTION_LOST</p>`;
         }
     }
 }
 
 /**
- * 3. KEY VERIFICATION (User Side)
- * Now accepts the key directly from the auto-display logic.
+ * 3. KEY VERIFICATION
+ * Updated for 6-6-6-6 Format (27 total characters)
  */
 async function verifyOwnership(providedKey) {
-    const key = providedKey || document.getElementById('verify_key_input')?.value.trim();
+    const key = providedKey || document.getElementById('recovery-key-input')?.value.trim();
 
-    if (!key || key.length < 24) return alert("INVALID_KEY: Protocol handshake failed.");
+    // 24 chars + 3 dashes = 27
+    if (!key || key.length < 27) {
+        console.error("[SYS] Handshake Failed: Key does not meet 6-6-6-6 requirements.");
+        alert("INVALID_KEY_FORMAT: Protocol requires 24-bit high entropy.");
+        return;
+    }
 
     try {
         const res = await fetch('/api/vault/verify-reconstitution', {
@@ -94,70 +97,68 @@ async function verifyOwnership(providedKey) {
         const data = await res.json();
 
         if (res.ok) {
-            alert(`SUCCESS: ${data.message}`);
+            alert(`VAULT_DECRYPTED: ${data.message}`);
             location.reload(); 
         } else {
-            alert(`FAILED: ${data.error}`);
+            alert(`DENIED: ${data.error}`);
         }
     } catch (e) {
-        alert("PROTOCOL_CRITICAL: Handshake failed.");
+        alert("CRITICAL_FAILURE: Handshake timeout.");
     }
 }
 
 /**
- * 4. ADMIN: FETCH TICKET QUEUE
+ * 4. AUTO-FORMATTER FOR 6-6-6-6
+ */
+document.addEventListener('input', (e) => {
+    if (e.target.id === 'recovery-key-input') {
+        let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        let blocks = [];
+        for (let i = 0; i < val.length && i < 24; i += 6) {
+            blocks.push(val.substring(i, i + 6));
+        }
+        e.target.value = blocks.join('-');
+    }
+});
+
+/**
+ * 5. ADMIN HANDLERS (QUEUE & RESTORE)
  */
 async function fetchTicketQueue() {
     const list = document.getElementById('ticket-list');
     try {
         const res = await fetch('/api/admin/tickets'); 
         const tickets = await res.json();
-        
         if (list) {
             list.innerHTML = tickets.length > 0 ? '' : 'QUEUE_EMPTY';
             tickets.forEach(t => {
                 const item = document.createElement('div');
-                item.style.cssText = "border-bottom:1px solid #30363d; padding:6px 0; display:flex; justify-content:space-between; align-items:center;";
+                item.style.cssText = "border-bottom:1px solid #21262d; padding:8px 0; display:flex; justify-content:space-between; align-items:center;";
                 item.innerHTML = `
-                    <span><b style="color:#ffd700;">${t.username}</b> <br> <i style="font-size:8px;">${t.filename}</i></span>
-                    <button onclick="executeRestore('${t.username}', '${t.filename}')" style="font-size:8px; background:#00ff41; color:#000; border:none; padding:4px 8px; cursor:pointer;">RECOVER</button>
+                    <span><b style="color:#00ff41;">${t.username}</b><br><small style="font-size:8px; color:#8b949e;">${t.filename}</small></span>
+                    <button onclick="executeRestore('${t.username}', '${t.filename}')" style="font-size:9px; background:#ffd700; color:#000; border:none; padding:4px 10px; cursor:pointer; font-weight:bold; border-radius:2px;">APPROVE</button>
                 `;
                 list.appendChild(item);
             });
         }
-    } catch (e) {
-        if (list) list.innerHTML = "OFFLINE";
-    }
+    } catch (e) { if (list) list.innerHTML = "OFFLINE"; }
 }
 
-/**
- * 5. ADMIN RESTORE EXECUTION
- * Removed the key alert. The key is now handled silently via database sync.
- */
 async function executeRestore(username, filename) {
-    if(!confirm(`Authorize recovery for ${username}?`)) return;
-    
+    if(!confirm(`Authorize 6-6-6-6 recovery for ${username}?`)) return;
     try {
         const res = await fetch('/api/admin/restore', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ username, filename })
         });
-        
-        const data = await res.json();
-        if(data.success) {
-            // No key alert here anymore—just a status update
-            console.log(`[ADMIN] Recovery approved for ${username}. Key synced to vault.`);
-            fetchTicketQueue();
-        }
-    } catch (err) {
-        console.error("ADMIN_RESTORE_ERR:", err);
-    }
+        if(res.ok) fetchTicketQueue();
+    } catch (err) { console.error(err); }
 }
 
-// Global Event Delegation
+// Global Event Listener
 document.addEventListener('click', (e) => {
-    if (e.target.closest('.status-text') || e.target.closest('.minibox-header')) {
+    if (e.target.closest('.minibox-header')) {
         handleMiniboxClick();
     }
 });

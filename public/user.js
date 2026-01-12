@@ -1,6 +1,6 @@
-/** SCE v1.0.1 [BETA] - IDENTITY & HANDSHAKE ENGINE **/
+/** SCE v1.0.4 [STABLE] - IDENTITY & HANDSHAKE ENGINE **/
 
-// Global User State - Synchronized with Server Session
+// Global User State
 window.currentUser = {
     username: 'Guest',
     avatar: null,
@@ -12,7 +12,6 @@ window.currentUser = {
 
 /**
  * 1. IDENTITY INITIALIZATION
- * Bridges the Gateway (Login) and the Main UI.
  */
 async function initUserSession() {
     try {
@@ -20,27 +19,38 @@ async function initUserSession() {
         const data = await res.json();
 
         if (data.authenticated) {
+            // FIXED: Explicit mapping to prevent undefined states
             window.currentUser = {
-                ...data,
+                username: data.username || 'Unknown_User',
+                avatar: data.avatar || null,
+                isAdmin: !!data.isAdmin,
+                isGuest: !!data.isGuest,
+                authenticated: true,
                 newRestoreAvailable: false
             };
             
-            // Transition Logic: Hide Gateway, Reveal Dashboard
-            const gateway = document.getElementById('auth-section');
+            // FIXED: Updated IDs to match v1.0.4 HTML
+            const gateway = document.getElementById('auth-session'); // Was auth-section
             const dashboard = document.getElementById('main-ui');
             const miniboxTrigger = document.getElementById('minibox-trigger');
+            const avatarImg = document.getElementById('user-avatar');
 
             if (gateway) gateway.style.display = 'none';
             if (dashboard) dashboard.style.display = 'block';
             if (miniboxTrigger) miniboxTrigger.style.display = 'flex';
             
-            renderProfile();
+            // Update Avatar in Nav
+            if (avatarImg && window.currentUser.avatar) {
+                avatarImg.src = window.currentUser.avatar;
+            }
             
-            // Activate High-Level Handshakes
+            renderProfile();
             startRecoveryHandshake();
             
-            // Trigger Cloud Asset Fetch
-            if (window.fetchFiles) window.fetchFiles();
+            // Link to Repo logic
+            if (window.Repo && typeof window.Repo.refreshVault === 'function') {
+                window.Repo.refreshVault();
+            }
             
             console.log(`[SYS] Identity Verified: ${window.currentUser.username}`);
         }
@@ -51,39 +61,25 @@ async function initUserSession() {
 
 /**
  * 2. PROFILE RENDERING
- * Injects verified credentials into the Navigation Hub.
  */
 function renderProfile() {
-    const anchor = document.getElementById('profile-anchor');
+    // FIXED: Corrected ID to pfp-anchor based on your nav hub
+    const anchor = document.getElementById('pfp-anchor') || document.getElementById('profile-anchor');
     if (!anchor) return;
 
-    const isAdmin = window.currentUser.isAdmin;
-    const isGuest = window.currentUser.isGuest;
-    
-    const roleBadge = isAdmin ? '<span class="badge-admin">ADMIN_LINK</span>' : '';
-    const sessionType = isGuest ? 'VOLATILE_GUEST' : 'SECURED_ID';
-
-    anchor.innerHTML = `
-        <div class="profile-card">
-            <div class="profile-info">
-                <div class="nav-username">${window.currentUser.username} ${roleBadge}</div>
-                <div class="nav-meta">
-                    <span class="status-indicator">ONLINE</span>
-                    <span class="session-label">${sessionType}</span>
-                    <a href="/api/auth/logout" class="nav-logout"> // TERMINATE</a>
-                </div>
-            </div>
-            <img src="${window.currentUser.avatar || 'assets/default-avatar.png'}" class="nav-avatar">
-        </div>
-    `;
+    // Note: We update the existing elements rather than overwriting innerHTML 
+    // to preserve event listeners on the PFP.
+    const nameDisplay = document.querySelector('.nav-username');
+    if (nameDisplay) {
+        const roleBadge = window.currentUser.isAdmin ? '<span class="badge-admin" style="color:#ffd700; font-size:9px;">[ADMIN_LINK]</span>' : '';
+        nameDisplay.innerHTML = `${window.currentUser.username} ${roleBadge}`;
+    }
 }
 
 /**
  * 3. RECOVERY HANDSHAKE PROTOCOL
- * Asynchronous polling to check for Admin-released keys in the Vault.
  */
 async function startRecoveryHandshake() {
-    // Guests do not have Vault access
     if (window.currentUser.isGuest || !window.currentUser.authenticated) return;
 
     const checkVault = async () => {
@@ -94,18 +90,18 @@ async function startRecoveryHandshake() {
             if (data.ready) {
                 window.currentUser.newRestoreAvailable = true;
                 
-                // 1. Visual Notification Dot
-                const dot = document.getElementById('notif-dot');
+                // FIXED: Shield/Notif dot logic
+                const dot = document.getElementById('shield-notif') || document.getElementById('notif-dot');
                 if (dot) dot.style.display = 'block';
                 
-                // 2. NoA Terminal Injection
-                if (window.noa && typeof window.noa.log === 'function') {
-                    window.noa.log("CRITICAL: Reconstitution protocol authorized for " + data.filename, "WARN");
+                // FIXED: Corrected Case-Sensitivity for NoA
+                if (window.NoA && typeof window.NoA.log === 'function') {
+                    window.NoA.log("RECONSTITUTION_AUTH: Claim token ready for " + data.filename, "WARN");
                 }
 
-                // 3. Dynamic Minibox Refresh
-                if (window.renderMiniboxContent) {
-                    window.renderMiniboxContent();
+                // Trigger popup if defined in repo.js
+                if (window.Repo && window.Repo.displayClaimPopup && data.claimKey) {
+                    window.Repo.displayClaimPopup(data.claimKey);
                 }
             }
         } catch (e) {
@@ -113,10 +109,8 @@ async function startRecoveryHandshake() {
         }
     };
 
-    // Initial check + 45s interval for performance optimization
     checkVault();
     setInterval(checkVault, 45000);
 }
 
-// Global initialization on DOM Ready
 document.addEventListener('DOMContentLoaded', initUserSession);

@@ -2,36 +2,46 @@ require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const axios = require('axios');
-const path = require('path');
 const { createClient } = require('@supabase/supabase-client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 1. DATABASE INITIALIZATION (Malaysia-Vault Bridge)
+// 1. DATABASE INITIALIZATION
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Memory Cache for active recovery tickets
+// 2. GLOBAL MEMORY (Recovery Tickets)
 global.recoveryData = new Map(); 
 
-// 2. MIDDLEWARE STACK
-// Link the routes you've updated/created
-app.use('/api/admin', require('./routes/admin'));
-app.use('/api/vault', require('./routes/vault'));
-app.use(express.json());
-app.use(express.static('public'));
-app.use(session({
+// 3. CORE MIDDLEWARE STACK (ORDER IS VITAL)
+app.use(express.json()); // 1st: Parse JSON
+app.use(express.urlencoded({ extended: true })); // 2nd: Parse Form Data
+app.use(session({        // 3rd: Establish Session
     secret: process.env.SESSION_SECRET || 'sce-vault-link-000',
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false, maxAge: 24 * 60 * 60 * 1000 }
+    cookie: { 
+        secure: false, // Set to true if using HTTPS
+        maxAge: 24 * 60 * 60 * 1000 
+    }
 }));
 
-/** * 3. IDENTITY HANDSHAKE (GitHub OAuth)
- * logic: Synchronizes GitHub identity with the Malaysia-Vault.
+// 4. ROUTE MOUNTING (Must come AFTER Session/JSON middleware)
+// Assuming these files exist in your /routes folder
+const adminRoutes = require('./routes/admin');
+const vaultRoutes = require('./routes/vault');
+app.use('/api/admin', adminRoutes);
+app.use('/api/vault', vaultRoutes);
+
+app.use(express.static('public'));
+
+/**
+ * 5. IDENTITY HANDSHAKE (GitHub OAuth)
  */
+
 app.get('/auth/github', (req, res) => {
-    res.redirect(`https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_ID}&scope=user:email`);
+    const url = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_ID}&scope=user:email`;
+    res.redirect(url);
 });
 
 app.get('/auth/github/callback', async (req, res) => {
@@ -47,51 +57,42 @@ app.get('/auth/github/callback', async (req, res) => {
             headers: { Authorization: `token ${tokenRes.data.access_token}` }
         });
 
-        // Map session data
+        // Map session data securely
         req.session.user = {
             id: userRes.data.id,
             username: userRes.data.login,
             avatar: userRes.data.avatar_url,
-            isAdmin: userRes.data.login === 'WAN234' // Admin identity
+            isAdmin: userRes.data.login === 'WAN234' 
         };
-        res.redirect('/');
+        
+        req.session.save(() => { // Force save before redirect
+            res.redirect('/');
+        });
     } catch (err) {
+        console.error("[AUTH_ERROR]", err.message);
         res.redirect('/?auth=failed');
     }
 });
 
 /**
- * 4. RECOVERY PROTOCOL API
- * Logic: Handles the movement of assets from Restricted Vault -> Community Archive.
+ * 6. RECOVERY PROTOCOL (The 6-6-6-6 Logic)
  */
-
-// Admin: Execute Reconstitution
-app.post('/api/admin/restore', async (req, res) => {
-    if (!req.session.user?.isAdmin) return res.status(403).json({ error: 'UNAUTHORIZED' });
-
-    const { username, filename } = req.body;
-    const claimKey = `SCE-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-
-    // Store key in global memory for Minibox verification
-    global.recoveryData.set(claimKey, { username, filename });
-
-    res.json({ success: true, claimKey });
-});
-
-// User: Claim Reconstituted Asset
 app.post('/api/user/verify-key', async (req, res) => {
     const { key } = req.body;
+    if (!req.session.user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
+
     const recovery = global.recoveryData.get(key);
 
     if (recovery && recovery.username === req.session.user.username) {
         try {
-            // Logic: Mark the file as 'public' in Supabase to reconstitute it
-            await supabase
+            const { data, error } = await supabase
                 .from('vault_assets')
                 .update({ status: 'reconstituted', visibility: 'public' })
                 .match({ filename: recovery.filename, owner: recovery.username });
 
-            global.recoveryData.delete(key); // Clear used key
+            if (error) throw error;
+
+            global.recoveryData.delete(key); 
             res.json({ success: true });
         } catch (err) {
             res.status(500).json({ error: 'VAULT_SYNC_ERROR' });
@@ -102,26 +103,22 @@ app.post('/api/user/verify-key', async (req, res) => {
 });
 
 /**
- * 5. SYSTEM STATUS & EXIT
+ * 7. SESSION & SYSTEM DIAGNOSTIC
  */
 app.get('/api/session', (req, res) => {
     if (!req.session.user) {
         return res.json({ isGuest: true, user: { username: 'GUEST', avatar: '/default-pfp.png' } });
     }
     
-    // Check if a recovery key exists for this user
-    const hasKey = Array.from(global.recoveryData.values()).some(v => v.username === req.session.user.username);
+    // Check for pending keys
+    const hasKey = Array.from(global.recoveryData.values())
+                        .some(v => v.username === req.session.user.username);
     
     res.json({ 
         isGuest: false, 
         user: req.session.user,
         recoveryReady: hasKey 
     });
-});
-
-app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
 });
 
 app.listen(PORT, () => console.log(`[SCE_SYSTEM] Bridge Active on Port ${PORT}`));

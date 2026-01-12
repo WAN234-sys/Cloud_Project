@@ -1,35 +1,33 @@
-/** SCE v1.0.3 [BETA] - UI VERIFICATION & MODAL ENGINE **/
+/** SCE v1.0.4 [STABLE] - UI VERIFICATION & MODAL ENGINE **/
 
 /**
  * 1. MODAL VISIBILITY CONTROL
- * Triggers the high-fidelity success popup. 
- * Injected by verify.js upon a valid server-side handshake.
+ * FIXED: Function renamed to match verify.js (Phase 4)
  */
-function showClaimPopup(key) {
+function prepareClaimModal(key, filename = "ASSET.c") {
     const popup = document.getElementById('claim-popup');
     const keyDisplay = document.getElementById('claim-key-display');
+    const fileTarget = document.getElementById('claim-filename-display'); // Optional target for UX
     
     if (popup && keyDisplay) {
-        // Inject verified key into the modal
         keyDisplay.innerText = key;
+        if (fileTarget) fileTarget.innerText = filename;
         
-        // Use Flex for center-screen focus and activation of backdrop blur
         popup.style.display = 'flex';
         
-        // Narrative continuity: Log to NoA if present
-        if (window.logToNoA) {
-            window.logToNoA("UI_ALERT: Success Modal deployed. Asset freed.", "SYS");
+        // FIXED: Aligned with NoA v1.0.4 Standard
+        if (window.NoA && typeof window.NoA.log === 'function') {
+            window.NoA.log(`UI_ALERT: Reconstitution Modal deployed for ${filename}`, "SYS");
         }
         
-        console.log(`[UI] Reconstitution sequence complete. Target: ${key}`);
+        console.log(`[UI] Modal active. Asset key: ${key}`);
     } else {
-        console.error("[UI] Critical Error: Success modal elements missing from DOM.");
+        console.error("[UI] Error: Modal elements (claim-popup/key-display) not found in DOM.");
     }
 }
 
 /**
  * 2. CLIPBOARD PROTOCOL
- * Handles secure key copying with reactive visual feedback.
  */
 async function copyKeyToClipboard() {
     const keyDisplay = document.getElementById('claim-key-display');
@@ -37,59 +35,46 @@ async function copyKeyToClipboard() {
     const successTip = document.getElementById('copy-success-tip');
     
     if (!keyDisplay) return;
-
     const keyText = keyDisplay.innerText;
 
     try {
         await navigator.clipboard.writeText(keyText);
         
-        // Transition: Indicate success inside the UI
         if (label) {
             const originalText = label.innerText;
             label.innerText = "SYSTEM_CLIPBOARD_LINKED";
-            label.style.color = "var(--electric-green)";
+            label.style.color = "#00ff41"; // Hex fallback for --electric-green
             
             if (successTip) successTip.style.display = 'block';
 
-            // Revert state after delay
             setTimeout(() => {
                 label.innerText = originalText;
-                label.style.color = "var(--gold)";
+                label.style.color = "#ffd700"; // Hex fallback for --gold
                 if (successTip) successTip.style.display = 'none';
             }, 3000);
         }
     } catch (err) {
-        console.warn("[UI] Clipboard link severed by browser policy.");
-        if (window.logToNoA) window.logToNoA("WARN: Clipboard permission denied.", "ERR");
+        if (window.NoA) window.NoA.log("ERR: Clipboard permission denied by OS.", "ERR");
     }
 }
 
 /**
- * 3. MODAL DISMISSAL & RECOGNITION
- * Closes the view and refreshes the archive to show the new ★ status.
+ * 3. MODAL DISMISSAL
  */
 function closeClaimPopup() {
     const popup = document.getElementById('claim-popup');
-    if (popup) {
-        // Fade out animation can be handled by CSS if display:none is delayed,
-        // but for now, we terminate the view immediately.
-        popup.style.display = 'none';
-    }
+    if (popup) popup.style.display = 'none';
 
-    console.log("[UI] Modal dismissed. Executing archive re-sync...");
-
-    // Refresh the repository list to display the ★ Gold Star status
-    if (typeof window.fetchFiles === 'function') {
+    // FIXED: Integrated with SCE Repository refresh
+    if (window.Repo && typeof window.Repo.refreshVault === 'function') {
+        window.Repo.refreshVault();
+    } else if (typeof window.fetchFiles === 'function') {
         window.fetchFiles();
-    } else {
-        // Fallback to full reload if cloud logic is detached
-        window.location.reload();
     }
 }
 
 /**
  * 4. SYSTEM ACCESSIBILITY
- * Global listener for [ESC] to terminate the modal overlay.
  */
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -100,7 +85,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Explicit Global Export
-window.showClaimPopup = showClaimPopup;
+// Global Exports
+window.prepareClaimModal = prepareClaimModal;
 window.copyKeyToClipboard = copyKeyToClipboard;
 window.closeClaimPopup = closeClaimPopup;

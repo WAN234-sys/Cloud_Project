@@ -11,8 +11,12 @@
 
     <nav class="nav-hub">
         <div class="nav-left">
-            <div id="profile-anchor">
-                </div>
+            <div id="profile-anchor" onclick="toggleProfileMenu()">
+                <img id="user-avatar" src="/assets/default-avatar.png" alt="Profile" style="width: 32px; height: 32px; border-radius: 50%; border: 1px solid #00ff41;">
+            </div>
+            <div id="profile-ext" class="profile-dropdown" style="display:none;">
+                <a href="/api/auth/logout"><i class="fas fa-sign-out-alt"></i> Terminate Session</a>
+            </div>
         </div>
 
         <div class="nav-center">
@@ -21,7 +25,7 @@
 
         <div class="nav-right">
             <div class="ai-interaction-group">
-                <div class="ai-side-trigger" onclick="handleAiLogic()">
+                <div class="ai-side-trigger">
                     <div class="status-pulse"></div>
                 </div>
                 <div class="ai-main-icon"><i class="fas fa-robot"></i></div>
@@ -29,20 +33,21 @@
         </div>
     </nav>
 
-    <main class="dashboard-content">
+    <main id="main-ui" class="dashboard-content" style="display:none;">
         
         <section class="archive-module">
             <div class="section-header">
-                <h2>Your Archive</h2>
+                <h2><i class="fas fa-database"></i> Your Archive</h2>
             </div>
             
             <div id="upload-zone" class="drop-zone">
                 <i class="fas fa-cloud-upload-alt"></i>
-                <p>upload project</p>
+                <p>DRAG & DROP PROJECT (.C)</p>
             </div>
 
             <div id="file-list-container" class="file-grid">
-                </div>
+                <div class="loading-shimmer">Synchronizing...</div>
+            </div>
         </section>
 
         <section class="benefits-scroller">
@@ -61,37 +66,39 @@
         </section>
     </main>
 
-    <div id="recovery-shield-trigger" class="shield-fab">
+    <div id="terminal-mount"></div>
+    <div id="modal-mount"></div>
+
+    <div id="recovery-shield-trigger" class="shield-fab" onclick="handleShieldClick()">
         <i class="fas fa-shield-alt"></i>
-        <div id="shield-notif" class="green-dot"></div>
+        <div id="shield-notif" class="green-dot" style="display:none;"></div>
     </div>
 
-    <div id="recovery-mini-box" class="side-form-center">
+    <div id="recovery-mini-box" class="side-form-center" style="display:none;">
         <div class="mini-box-header">ASSET RECOVERY</div>
-        <input type="text" id="recover-filename" placeholder="Filename...">
-        <button onclick="submitRecoveryRequest()">REQUEST RESTORE</button>
-    </div>
-
-    <div id="delete-confirm-popup" class="bottom-confirm">
-        <p>Permanently delete <span id="delete-target-name"></span>?</p>
-        <div class="confirm-btns">
-            <button class="btn-yes" onclick="CloudSync.executeDelete()">DELETE</button>
-            <button class="btn-no" onclick="document.getElementById('delete-confirm-popup').style.display='none'">CANCEL</button>
+        <div class="mini-box-body">
+            <p>Enter filename to request manual restoration from Admin vault.</p>
+            <input type="text" id="recover-filename" placeholder="warranty_id.c">
+            <button class="btn-request" onclick="submitRecoveryRequest()">REQUEST RESTORE</button>
         </div>
     </div>
 
-    <div id="terminal-overlay" style="display:none;">
-        <div id="terminal-output"></div>
-        <div class="terminal-input-line">
-            <span>></span>
-            <input type="text" id="terminal-input" autofocus autocomplete="off">
+    <div id="delete-confirm-popup" class="bottom-confirm-overlay" style="display:none;">
+        <div class="confirm-content">
+            <p class="warning-text">
+                <i class="fas fa-exclamation-triangle"></i> 
+                DELETE ASSET: <span id="delete-target-name">---</span>?
+            </p>
+            <div class="confirm-actions">
+                <button class="btn-confirm-yes" onclick="CloudSync.executeDelete()">YES_DELETE</button>
+                <button class="btn-confirm-no" onclick="closeDeleteModal()">CANCEL</button>
+            </div>
         </div>
     </div>
 
-    <script src="core.js"></script>
-    <script src="client.js"></script>
-    <script src="cloud.js"></script>
-    <script src="admin.js"></script>
+    <script src="bridge.js"></script>  
+    <script src="user.js"></script>    
+    <script src="archive.js"></script> 
 
 </body>
 </html>

@@ -1,28 +1,40 @@
-/** SCE v1.0.3 [BETA] - SYSTEM MANIFEST & BOOTLOADER **/
+/** SCE v1.0.4 [STABLE] - SYSTEM MANIFEST & HEALTH CHECK **/
 
-const SCE_MODULES = [
-    'user.js',      // 1. Identity first
-    'upload.js',    // 2. Transmission 
-    'terminal.js',  // 3. Command Bridge
-    'bridge.js',    // 4. Component Glue
-    'verify.js',    // 5. Verification Logic
-    'verifybox.js'  // 6. UI Interactions
-];
+const SYSTEM_HEALTH = {
+    domReady: false,
+    authSynced: false,
+    componentsMounted: false
+};
 
 function initializeSystem() {
-    console.log("%c SC_EXPLORER_v1.0.3: INITIALIZING BOOT_SEQUENCE ", "background: #00ff41; color: #000; font-weight: bold;");
+    console.log("%c SC_EXPLORER_v1.0.4: BOOT_SEQUENCE_START ", "background: #00ff41; color: #000; font-weight: bold;");
     
-    // Check if critical DOM elements are present
-    const requiredElements = ['auth-session', 'main-ui', 'modal-mount'];
+    // 1. DOM Check
+    const requiredElements = ['auth-session', 'main-ui', 'modal-mount', 'terminal-mount'];
     const missing = requiredElements.filter(id => !document.getElementById(id));
 
     if (missing.length > 0) {
-        console.error(`[CRITICAL] System Malfunction: Missing DOM Mounts: ${missing.join(', ')}`);
+        console.error(`[CRITICAL] BOOT_FAILURE: Missing Mounts: ${missing.join(', ')}`);
+        // Optional: Show a "System Error" overlay to the user
         return;
     }
 
-    console.log("[SYS] Neural modules verified. System Online.");
+    SYSTEM_HEALTH.domReady = true;
+    console.log("[SYS] DOM Infrastructure: VERIFIED.");
 }
 
-// Trigger boot sequence once all scripts are parsed
+/**
+ * Global Health Monitor
+ * Other scripts (like bridge.js) can call this to update status.
+ */
+window.updateSystemStatus = (module) => {
+    console.log(`[SYS] Module Synced: ${module}`);
+    if (module === 'BRIDGE') SYSTEM_HEALTH.componentsMounted = true;
+    if (module === 'IDENTITY') SYSTEM_HEALTH.authSynced = true;
+
+    if (SYSTEM_HEALTH.authSynced && SYSTEM_HEALTH.componentsMounted) {
+        console.log("%c[SYS] SYSTEM_FULLY_OPERATIONAL", "color: #00ff41; font-weight: bold;");
+    }
+};
+
 document.addEventListener('DOMContentLoaded', initializeSystem);

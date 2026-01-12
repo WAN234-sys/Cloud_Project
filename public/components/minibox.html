@@ -2,7 +2,7 @@
     
     <div class="minibox-header">
         <span class="status-text">
-            <i class="fas fa-microchip"></i> SYSTEM_MINIBOX v1.0.3
+            <i class="fas fa-microchip"></i> SYSTEM_MINIBOX v1.0.4
         </span>
         <div id="minibox-pulse" class="pulse-active"></div>
     </div>
@@ -11,11 +11,11 @@
         <div class="divider-gold"></div>
         <h4 class="section-label">ASSET_RECOVERY_PROTOCOL</h4>
         <p class="section-desc">
-            Input the high-entropy claim key (XXXX-XXXX) provided by the Admin to reconstitute your asset.
+            Input the high-entropy claim key (XXXX-XXXX) provided by the Admin.
         </p>
         
         <div class="input-wrapper">
-            <input type="text" id="verify_key_input" placeholder="XXXX-XXXX" class="mini-input">
+            <input type="text" id="recovery-key-input" placeholder="XXXX-XXXX" class="mini-input">
             <button onclick="verifyOwnership()" id="claim-btn" class="btn-claim">
                 <i class="fas fa-unlock-alt"></i> CLAIM_ASSET
             </button>
@@ -26,11 +26,11 @@
     <div id="request-section" class="minibox-section" style="display: none;">
         <h4 class="section-label">NEW_RECOVERY_REQUEST</h4>
         <input type="text" id="req-filename" placeholder="Target filename..." class="mini-input">
-        <button onclick="submitRecoveryRequest()" class="btn-request">SEND TO ADMIN</button>
+        <button onclick="submitRecoveryRequest()" class="btn-request">SEND_TO_ADMIN</button>
     </div>
 
     <div class="minibox-actions">
-        <button id="admin-trigger" class="btn-terminal" style="display: none;" onclick="Core.toggleTerminal()">
+        <button id="admin-trigger" class="btn-terminal" style="display: none;" onclick="AdminTerminal.toggle()">
             <i class="fas fa-terminal"></i> BRIDGE
         </button>
 
@@ -42,15 +42,15 @@
 </div>
 
 <style>
-/* Minibox v1.0.3 - Synchronized Theme */
+/* Minibox v1.0.4 - System Synchronized Theme */
 .minibox-shell {
-    background: #0d1117; /* GitHub Dark */
+    background: #0d1117; 
     border: 1px solid #30363d;
     border-radius: 8px;
     padding: 16px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.8);
     font-family: 'Fira Code', monospace;
-    border-left: 4px solid #00ff41; /* Electric Green */
+    border-left: 4px solid #00ff41; 
     width: 280px;
     position: fixed;
     left: 20px;
@@ -74,7 +74,6 @@
     text-transform: uppercase;
 }
 
-/* Notification Pulse */
 .pulse-active {
     width: 8px;
     height: 8px;
@@ -93,7 +92,7 @@
 }
 
 .section-label {
-    color: #ffd700; /* Gold for security headers */
+    color: #ffd700; 
     font-size: 9px;
     margin-bottom: 4px;
     letter-spacing: 1px;
@@ -117,6 +116,7 @@
     border-radius: 4px;
     outline: none;
     margin-bottom: 8px;
+    text-transform: uppercase;
 }
 
 .btn-claim {
@@ -135,6 +135,19 @@
 .btn-claim:hover {
     background: #fff;
     box-shadow: 0 0 15px #ffd700;
+}
+
+.btn-terminal {
+    background: #161b22;
+    color: #00ff41;
+    border: 1px solid #30363d;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 9px;
+    cursor: pointer;
+    margin-bottom: 10px;
+    width: 100%;
+    text-align: left;
 }
 
 .identity-report {

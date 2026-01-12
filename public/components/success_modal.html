@@ -8,13 +8,19 @@
             <p class="modal-subtitle">THE NEURAL LINK HAS BEEN VERIFIED BY WAN234-SYS</p>
         </div>
 
-        <div class="key-container" onclick="copyKeyToClipboard()" id="key-tap-zone">
+        <div class="key-container" onclick="handleKeyCopy()" id="key-tap-zone">
             <small class="label-blink">RECOVERY_TOKEN_ACTIVE</small>
             <div id="claim-key-display">SCE-WAIT-SYNC</div>
-            <div class="copy-hint">
-                <i class="fas fa-copy"></i> CLICK_TO_SYNC_CLIPBOARD
+            
+            <div id="copy-hint-group">
+                <div class="copy-hint">
+                    <i class="fas fa-copy"></i> CLICK_TO_SYNC_CLIPBOARD
+                </div>
             </div>
-            <div id="copy-success-tip" style="display: none;">COPIED_TO_SYSTEM</div>
+            
+            <div id="copy-success-tip" style="display: none; position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);">
+                <i class="fas fa-check-circle"></i> COPIED_TO_SYSTEM
+            </div>
         </div>
 
         <div class="modal-footer">
@@ -30,148 +36,66 @@
     </div>
 </div>
 
+<script>
+/**
+ * RECONSTITUTION UI LOGIC
+ */
+
+// 1. Show the Popup (Call this from repo.js or bridge.js)
+function openClaimPopup(key) {
+    const modal = document.getElementById('claim-popup');
+    const display = document.getElementById('claim-key-display');
+    if (modal && display) {
+        display.innerText = key;
+        modal.style.display = 'flex';
+        if(typeof NoA !== 'undefined') NoA.log("RECOVERY_TOKEN: Displayed for user verification.", "THOUGHT");
+    }
+}
+
+// 2. Handle Clipboard Sync
+async function handleKeyCopy() {
+    const keyText = document.getElementById('claim-key-display').innerText;
+    const tip = document.getElementById('copy-success-tip');
+    const hint = document.querySelector('.copy-hint');
+
+    try {
+        await navigator.clipboard.writeText(keyText);
+        
+        // Visual Feedback
+        hint.style.opacity = '0';
+        tip.style.display = 'block';
+        
+        setTimeout(() => {
+            tip.style.display = 'none';
+            hint.style.opacity = '1';
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy: ', err);
+    }
+}
+
+// 3. Close & Reset
+function closeClaimPopup() {
+    document.getElementById('claim-popup').style.display = 'none';
+}
+</script>
+
 <style>
-/* Modal Specific Design - SC EXPLORER Edition */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(2, 4, 8, 0.96); /* Darker backdrop for focus */
-    backdrop-filter: blur(12px);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
-
-.modal-box {
-    background: #0d1117;
-    border: 1.5px solid #ffd700; /* Gold Border */
-    border-radius: 8px;
-    padding: 40px;
-    max-width: 440px;
-    width: 100%;
-    text-align: center;
-    box-shadow: 0 0 50px rgba(255, 215, 0, 0.15);
-    position: relative;
-    animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Icon Aesthetics */
-.icon-pulse {
-    width: 70px;
-    height: 70px;
-    background: rgba(255, 215, 0, 0.05);
-    border: 1px solid #ffd700;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 0 auto 20px;
-    font-size: 28px;
-    color: #ffd700;
-    animation: pulseGold 2s infinite;
-}
-
-.modal-title {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 1.3rem;
-    font-weight: 900;
-    letter-spacing: 4px;
-    color: #ffffff;
-}
-
-.modal-subtitle {
+/* Existing CSS remains, adding minor fixes for feedback */
+#copy-success-tip {
     font-size: 9px;
-    color: #8b949e;
-    letter-spacing: 1.5px;
-    margin-top: 8px;
-}
-
-/* The Key Display Box */
-.key-container {
-    background: #010409;
-    border: 1px dashed rgba(255, 215, 0, 0.4);
-    border-radius: 6px;
-    padding: 25px;
-    margin: 30px 0;
-    cursor: pointer;
-    position: relative;
-    transition: 0.3s;
-}
-
-.key-container:hover {
-    background: rgba(255, 215, 0, 0.03);
-    border-style: solid;
-    border-color: #ffd700;
-}
-
-#claim-key-display {
-    font-family: 'Fira Code', monospace;
-    font-size: 20px;
-    color: #ffffff;
-    letter-spacing: 2px;
-}
-
-.label-blink {
-    font-size: 9px;
-    color: #ffd700;
+    color: #00ff41; 
     font-weight: bold;
-    display: block;
-    margin-bottom: 10px;
-    animation: sce-blink 1.5s infinite;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .copy-hint {
-    font-size: 8px;
-    color: #484f58;
-    margin-top: 12px;
-    text-transform: uppercase;
+    transition: opacity 0.3s ease;
 }
 
-#copy-success-tip {
-    font-size: 9px;
-    color: #00ff41; /* Success Green */
-    font-weight: bold;
-    margin-top: 10px;
-}
-
-/* Text Theming */
-.vault-tag { color: #58a6ff; font-family: var(--code-font); }
-.gold-text { color: #ffd700; font-weight: bold; }
-
-.footer-note {
-    font-size: 12px;
-    color: #8b949e;
-    line-height: 1.6;
-    margin-bottom: 25px;
-}
-
-.btn-close-modal {
-    width: 100%;
-    background: #ffd700;
-    color: #000;
-    border: none;
-    padding: 12px;
-    font-weight: 900;
-    font-size: 11px;
-    letter-spacing: 2px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-
-.btn-close-modal:hover { filter: brightness(1.2); }
-
-/* Keyframes */
-@keyframes modalSlideIn {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes pulseGold {
-    0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
-    70% { box-shadow: 0 0 0 15px rgba(255, 215, 0, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+/* Ensure pulse doesn't cause scrollbars */
+.icon-pulse {
+    pointer-events: none;
 }
 </style>

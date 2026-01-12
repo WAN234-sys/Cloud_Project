@@ -1,6 +1,8 @@
-/** SCE v1.0.3 [BETA] - CLOUD ARCHIVE ENGINE **/
+/** SCE v1.0.4 [STABLE] - CLOUD ARCHIVE ENGINE **/
 
 const CloudSync = {
+    pendingDelete: null,
+
     // 1. RENDER ARCHIVE: Display files in "Your Archive"
     renderArchive: async () => {
         const container = document.getElementById('file-list-container');
@@ -25,9 +27,9 @@ const CloudSync = {
                     <div class="file-actions">
                         <button class="btn-download" onclick="CloudSync.downloadAsset('${file.name}')">
                             <i class="fas fa-download"></i>
-                        </a>
+                        </button>
                         <button class="btn-delete" 
-                                onmouseenter="CloudSync.showDeleteWarning(this)" 
+                                title="WARNING: This action is permanent."
                                 onclick="CloudSync.confirmDelete('${file.name}')">
                             <i class="fas fa-trash-alt"></i>
                         </button>
@@ -36,59 +38,73 @@ const CloudSync = {
                 container.appendChild(fileEl);
             });
         } catch (err) {
-            console.error("Failed to sync archive.");
+            console.error("[CLOUD] Failed to sync archive:", err);
         }
     },
 
-    // 2. FILENAME SAFETY: One user, one unique filename
+    // 2. FILENAME SAFETY
     validateFilename: async (filename) => {
-        const res = await fetch('/api/cloud/files');
-        const files = await res.json();
-        
-        // Safety First: Checks if the user already owns a file with this name
-        const exists = files.some(f => f.name.toLowerCase() === filename.toLowerCase());
-        if (exists) {
-            alert(`CONFLICT: A file named "${filename}" already exists in your archive. Please rename the project before uploading.`);
+        try {
+            const res = await fetch('/api/cloud/files');
+            const files = await res.json();
+            const exists = files.some(f => f.name.toLowerCase() === filename.toLowerCase());
+            
+            if (exists) {
+                alert(`CONFLICT: A file named "${filename}" already exists.`);
+                return false;
+            }
+            return true;
+        } catch (e) {
             return false;
         }
-        return true;
     },
 
     // 3. PERMANENT DELETE FLOW
-    showDeleteWarning: (el) => {
-        // Triggers the hover warning style (White and Electric Green)
-        el.setAttribute('title', 'WARNING: This action is permanent and cannot be undone.');
-    },
-
-    confirmDelete: async (filename) => {
-        // Bottom-Middle Confirmation Popup logic
+    confirmDelete: (filename) => {
         const overlay = document.getElementById('delete-confirm-popup');
         const targetText = document.getElementById('delete-target-name');
         
         if (overlay && targetText) {
             targetText.innerText = filename;
             overlay.style.display = 'flex';
-            
-            // Store target in a global for the "Yes, Delete" button
-            window.pendingDelete = filename;
+            CloudSync.pendingDelete = filename; // Internal state
         }
     },
 
     executeDelete: async () => {
-        const filename = window.pendingDelete;
+        const filename = CloudSync.pendingDelete;
         if (!filename) return;
 
-        const res = await fetch(`/api/cloud/delete/${filename}`, { method: 'DELETE' });
-        if (res.ok) {
-            document.getElementById('delete-confirm-popup').style.display = 'none';
-            CloudSync.renderArchive(); // Refresh "Your Archive"
+        try {
+            const res = await fetch(`/api/cloud/delete/${filename}`, { method: 'DELETE' });
+            if (res.ok) {
+                const popup = document.getElementById('delete-confirm-popup');
+                if (popup) popup.style.display = 'none';
+                CloudSync.pendingDelete = null;
+                CloudSync.renderArchive(); 
+            }
+        } catch (err) {
+            console.error("[CLOUD] Delete failed:", err);
         }
     },
 
     downloadAsset: (filename) => {
-        window.location.href = `/api/cloud/download/${filename}`;
+        // Creates a clean, temporary download trigger
+        const link = document.createElement('a');
+        link.href = `/api/cloud/download/${filename}`;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 };
 
 // Initialize Archive on load
 document.addEventListener('DOMContentLoaded', CloudSync.renderArchive);
+
+// Handle Cancel Button in Delete Popup (Add this for safety)
+function closeDeleteModal() {
+    const popup = document.getElementById('delete-confirm-popup');
+    if (popup) popup.style.display = 'none';
+    CloudSync.pendingDelete = null;
+}

@@ -1,93 +1,86 @@
-/** SCE v1.0.3 [BETA] - NOTIFICATION & VERIFICATION ENGINE **/
+/** SCE v1.0.4 [STABLE] - NOTIFICATION & VERIFICATION ENGINE **/
 
 /**
  * 1. ADMIN QUEUE SYNCHRONIZATION
- * Purges the processed ticket from the Admin's view.
  */
 async function clearAdminTicket(claimKey) {
-    console.log(`[VAULT_SYNC] Purging key: ${claimKey}`);
-    
     try {
-        const response = await fetch('/api/admin/clear-notification', {
+        // FIXED: Endpoint aligned with SCE v1.0.5 Backend
+        await fetch('/api/admin/clear-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key: claimKey })
         });
-
-        if (response.ok) {
-            console.log("[VAULT_SYNC] Admin terminal state synchronized.");
-        }
     } catch (err) {
-        console.warn("[VAULT_SYNC] Network failure during ticket purge.");
+        console.warn("[VAULT_SYNC] Admin terminal state sync pending retry.");
     }
 }
 
 /**
  * 2. PRIMARY VERIFICATION HANDSHAKE
- * Validates the Gold Key and releases the asset.
  */
 async function verifyOwnership() {
-    const input = document.getElementById('verify_key_input');
+    // FIXED: Common ID check for hyphen or underscore
+    const input = document.getElementById('verify-key-input') || document.getElementById('verify_key_input');
     const claimBtn = document.querySelector('#minibox-ui .btn-transmit');
     
     if (!input) return;
     const key = input.value.trim();
 
-    // Field Validation
     if (!key) {
         alert("INPUT_REQUIRED: Enter the Gold Recovery Key.");
         return;
     }
 
-    // Phase 1: Interactive Feedback (Loading State)
     if (claimBtn) {
         claimBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> LINKING...';
         claimBtn.disabled = true;
     }
 
     try {
-        // Phase 2: Security Handshake with Server (POST to verify-key)
-        const res = await fetch('/api/user/verify-key', {
+        // FIXED: Aligned with v1.0.5 Backend Endpoint
+        const res = await fetch('/api/vault/verify-reconstitution', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ key: key })
         });
 
-        if (res.ok) {
-            // Phase 3: Global Cleanup
-            // Tell Admin Terminal to remove this request from the sidebar
-            await clearAdminTicket(key);
-            
-            // Clear the Notification dots
-            const dot = document.getElementById('notif-dot');
-            const shieldNotif = document.getElementById('shield-notif');
-            if (dot) dot.style.display = 'none';
-            if (shieldNotif) shieldNotif.style.display = 'none';
+        const data = await res.json();
 
-            // Update local user state
-            if (window.currentUser) {
-                window.currentUser.newRestoreAvailable = false;
+        if (res.ok && data.success) {
+            // Logic: Purge Admin sidebar (Non-blocking)
+            clearAdminTicket(key);
+            
+            // UI Cleanup
+            const dots = ['notif-dot', 'shield-notif'];
+            dots.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+
+            if (window.currentUser) window.currentUser.newRestoreAvailable = false;
+
+            // Phase 3: NoA System Log
+            if (window.NoA) {
+                window.NoA.log(`Asset ${data.filename || ''} successfully reconstituted.`, "SYS");
             }
 
             // Phase 4: Success Modal Activation
-            // This triggers the gold popup built in success_modal.html
             if (typeof window.prepareClaimModal === 'function') {
-                // We pass the key back to show the confirmation
-                window.prepareClaimModal(key, "RECONSTITUTED_ASSET.c");
+                window.prepareClaimModal(key, data.filename || "RECONSTITUTED_ASSET.c");
             }
 
-            // Phase 5: Refresh Repository
-            // This will re-fetch files and the target file will now have the 'recovered' star
-            if (window.fetchFiles) window.fetchFiles();
+            // Phase 5: Refresh Repo (SCE standard refresh)
+            if (window.Repo && typeof window.Repo.refreshVault === 'function') {
+                window.Repo.refreshVault();
+            } else if (window.fetchFiles) {
+                window.fetchFiles();
+            }
 
-            // Clear input for security
             input.value = '';
 
         } else {
-            // Phase 6: Rejection Logic
-            alert("REJECTED: Invalid or Expired Key.");
-            
-            // Reset Button for Retry
+            alert(data.error || "REJECTED: Invalid or Expired Key.");
             if (claimBtn) {
                 claimBtn.innerText = "CLAIM ASSET";
                 claimBtn.disabled = false;
@@ -95,7 +88,6 @@ async function verifyOwnership() {
         }
     } catch (err) {
         console.error("[CRITICAL] Verification protocol timeout.", err);
-        
         if (claimBtn) {
             claimBtn.innerText = "RETRY_LINK";
             claimBtn.disabled = false;
@@ -103,5 +95,4 @@ async function verifyOwnership() {
     }
 }
 
-// Global Export
 window.verifyOwnership = verifyOwnership;

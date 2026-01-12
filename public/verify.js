@@ -2,11 +2,11 @@
 
 /**
  * 1. ADMIN QUEUE SYNCHRONIZATION
- * Clears the processed ticket from the Admin's view once the user 
- * has successfully entered the claim key.
+ * Removes the processed ticket from the Admin's terminal to prevent 
+ * duplicate reconstitutions once the user has claimed the asset.
  */
 async function clearAdminTicket(claimKey) {
-    console.log(`[PROTOCOL] Synchronizing Vault: Purging ${claimKey}`);
+    console.log(`[VAULT_SYNC] Purging key: ${claimKey}`);
     
     try {
         const response = await fetch('/api/admin/clear-notification', {
@@ -16,17 +16,17 @@ async function clearAdminTicket(claimKey) {
         });
 
         if (response.ok) {
-            console.log("[VAULT] Admin queue synchronized. Ticket removed.");
+            console.log("[VAULT_SYNC] Admin database synchronized.");
         }
     } catch (err) {
-        console.warn("[VAULT] Sync failed. Admin may require manual purge.");
+        console.warn("[VAULT_SYNC] Network failure during ticket purge.");
     }
 }
 
 /**
  * 2. PRIMARY VERIFICATION HANDSHAKE
- * Validates the key with the server, clears UI indicators, and triggers
- * the success sequence for asset reconstitution.
+ * Validates the user's input, updates the persistent global state, 
+ * and triggers the final visual success sequence.
  */
 async function verifyOwnership() {
     const input = document.getElementById('verify_key_input');
@@ -35,20 +35,20 @@ async function verifyOwnership() {
     if (!input) return;
     const key = input.value.trim();
 
+    // Field Validation
     if (!key) {
-        if (window.logToNoA) window.logToNoA("WARN: Empty claim key field.", "ERR");
-        alert("REQUIRED: Enter High-Entropy Claim Key.");
+        if (window.logToNoA) window.logToNoA("HANDSHAKE_ERR: Key required for extraction.", "ERR");
         return;
     }
 
-    // Phase 1: Visual Feedback
+    // Phase 1: Interactive Feedback
     if (claimBtn) {
-        claimBtn.innerText = "LINKING...";
+        claimBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> LINKING...';
         claimBtn.disabled = true;
     }
 
     try {
-        // Phase 2: Server-Side Validation
+        // Phase 2: Security Handshake with Server
         const res = await fetch('/api/user/verify-key', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -56,45 +56,57 @@ async function verifyOwnership() {
         });
 
         if (res.ok) {
-            // Phase 3: Post-Verification Purge
+            // Phase 3: Global State Purge
+            // Notify Admin Bridge to remove the entry
             await clearAdminTicket(key);
             
-            // Phase 4: UI State Reset
+            // Clear the Red Notification Dot
             const dot = document.getElementById('notif-dot');
             if (dot) dot.style.display = 'none';
 
+            // Update Global Identity Variable
             if (window.currentUser) {
                 window.currentUser.newRestoreAvailable = false;
             }
 
-            // Phase 5: Success Trigger
-            // Logs to NoA Terminal and opens the Success Modal
+            // Phase 4: Success Diagnostics
             if (window.logToNoA) {
-                window.logToNoA(`SUCCESS: Asset reconstituted via ${key}.`, "SYS");
+                window.logToNoA(`VAULT_ACCESS: Key ${key} accepted. Asset released.`, "SYS");
             }
             
-            if (typeof showClaimPopup === 'function') {
-                showClaimPopup(key);
+            // Phase 5: Success Modal Activation
+            // Defined in success_modal.html logic
+            if (typeof window.showClaimPopup === 'function') {
+                window.showClaimPopup(key);
             }
 
-            // Phase 6: Sync Repository View
+            // Phase 6: Refresh Repository
+            // The file will now appear with the 'recovered' class (Gold Star)
             if (window.fetchFiles) window.fetchFiles();
 
+            // Clear input for security
+            input.value = '';
+
         } else {
-            // Phase 7: Error Handling
-            if (window.logToNoA) window.logToNoA(`REJECTED: Key ${key} is invalid.`, "ERR");
-            alert("ACCESS DENIED: Verification Key invalid or expired.");
+            // Phase 7: Rejection Logic
+            if (window.logToNoA) window.logToNoA(`REJECTED: ${key} not found in vault.`, "ERR");
             
+            // Reset Button for Retry
             if (claimBtn) {
                 claimBtn.innerText = "CLAIM ASSET";
                 claimBtn.disabled = false;
             }
         }
     } catch (err) {
-        console.error("CRITICAL: Verification Link Failure.", err);
-        alert("CONNECTION ERROR: Security Vault unreachable.");
+        console.error("[CRITICAL] Verification protocol timeout.", err);
+        if (window.logToNoA) window.logToNoA("SYS_ERR: Vault link severed.", "ERR");
+        
+        if (claimBtn) {
+            claimBtn.innerText = "RETRY_LINK";
+            claimBtn.disabled = false;
+        }
     }
 }
 
-// Attach to global scope for Minibox integration
+// Global Export for Minibox/NoA UI bindings
 window.verifyOwnership = verifyOwnership;

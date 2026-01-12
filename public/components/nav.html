@@ -1,41 +1,44 @@
 <nav class="system-nav">
     <div class="nav-container">
         <div class="nav-left">
-            <div class="status-indicator">
-                <div class="status-pulse"></div>
-                <span class="status-label">SYSTEM_ACTIVE</span>
+            <div class="status-indicator" id="nav-status-box">
+                <div class="status-pulse" id="nav-pulse"></div>
+                <span class="status-label" id="nav-status-text">SYSTEM_ACTIVE</span>
             </div>
-            <div class="version-tag">v1.0.1_BETA</div>
+            <div class="version-tag">SCE_v1.0.1_BETA</div>
         </div>
 
         <div id="profile-anchor" class="nav-right">
-            <div class="nav-placeholder">SYNCHRONIZING_IDENTITY...</div>
+            <div class="nav-placeholder">
+                <i class="fas fa-spinner fa-spin"></i> SYNCHRONIZING_IDENTITY...
+            </div>
         </div>
     </div>
 
     <div id="notif-banner" class="notification-strip" style="display: none;">
-        <i class="fas fa-exclamation-triangle"></i>
-        <span id="notif-text">PENDING_RECOVERY: HIGH-ENTROPY KEY READY IN MINIBOX</span>
+        <i class="fas fa-shield-alt"></i>
+        <span id="notif-text">SECURED_VAULT: ASSET RECONSTITUTION READY</span>
         <div class="notif-close" onclick="this.parentElement.style.display='none'">×</div>
     </div>
 </nav>
 
 <style>
-/* Navigation Specific Architecture */
+/* Navigation Specific Architecture - SC EXPLORER */
 .system-nav {
     width: 100%;
-    background: rgba(13, 17, 23, 0.95);
-    border-bottom: 1px solid var(--gh-border);
+    background: rgba(13, 17, 23, 0.85); /* Increased transparency for glass effect */
+    border-bottom: 1px solid var(--gh-border, #30363d);
     position: sticky;
     top: 0;
     z-index: 1000;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
 }
 
 .nav-container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
-    padding: 12px 20px;
+    padding: 10px 25px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -51,71 +54,82 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    background: rgba(46, 204, 113, 0.1);
-    padding: 4px 10px;
-    border-radius: 20px;
-    border: 1px solid rgba(46, 204, 113, 0.3);
+    background: rgba(46, 204, 113, 0.05);
+    padding: 5px 12px;
+    border-radius: 4px; /* Squared off for industrial feel */
+    border: 1px solid rgba(46, 204, 113, 0.2);
+    transition: 0.3s ease;
 }
 
 .status-pulse {
-    width: 6px;
-    height: 6px;
-    background: var(--electric-green);
+    width: 7px;
+    height: 7px;
+    background: var(--electric-green, #00ff41);
     border-radius: 50%;
-    box-shadow: 0 0 8px var(--electric-green);
+    box-shadow: 0 0 10px var(--electric-green);
     animation: pulse 2s infinite;
 }
 
 .status-label {
     font-size: 10px;
     font-family: 'Fira Code', monospace;
-    color: var(--electric-green);
-    letter-spacing: 1px;
+    color: var(--electric-green, #00ff41);
+    letter-spacing: 1.5px;
+    font-weight: 600;
 }
 
 .version-tag {
-    font-size: 10px;
-    color: var(--text-muted);
+    font-size: 9px;
+    color: var(--text-muted, #8b949e);
     font-family: 'Fira Code', monospace;
-    opacity: 0.6;
+    letter-spacing: 1px;
 }
 
-/* Notification Strip */
+/* Notification Strip - Recovery Gold */
 .notification-strip {
-    background: var(--gold);
+    background: var(--gold, #ffd700);
     color: #000;
-    font-size: 10px;
-    font-weight: bold;
+    font-size: 11px;
+    font-weight: 800;
     text-align: center;
-    padding: 6px;
+    padding: 8px;
     font-family: 'Space Grotesk', sans-serif;
     letter-spacing: 1px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 15px;
-    animation: slideDown 0.4s ease-out;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+    animation: slideDown 0.5s cubic-bezier(0.17, 0.67, 0.83, 0.67);
 }
 
 .notif-close {
     cursor: pointer;
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: bold;
     padding: 0 10px;
+    transition: 0.2s;
 }
 
-/* Profile Card Styling */
+.notif-close:hover { transform: scale(1.2); }
+
+/* Profile Card Styling - Integrated with core.js renderProfile() */
 .profile-card {
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: 0.2s;
 }
 
 .nav-avatar {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    border: 1px solid var(--gh-border);
+    border: 2px solid var(--gh-border);
     background: #000;
+    object-fit: cover;
 }
 
 .profile-info {
@@ -124,9 +138,20 @@
 }
 
 .nav-username {
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    font-family: 'Space Grotesk', sans-serif;
+}
+
+.badge-admin {
+    font-size: 8px;
+    background: var(--gold);
+    color: #000;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 5px;
+    vertical-align: middle;
 }
 
 .nav-logout {
@@ -134,22 +159,24 @@
     color: var(--text-muted);
     text-decoration: none;
     text-transform: uppercase;
-    margin-top: 4px;
-    transition: 0.2s;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
 }
 
 .nav-logout:hover {
-    color: var(--del-red);
+    color: var(--del-red, #ff4d4d);
+    text-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
 }
 
 @keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.4; }
-    100% { opacity: 1; }
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes slideDown {
-    from { transform: translateY(-100%); }
-    to { transform: translateY(0); }
+    from { transform: translateY(-100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 </style>

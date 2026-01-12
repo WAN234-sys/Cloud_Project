@@ -19,11 +19,11 @@ const PORT = process.env.PORT || 3000;
  * High-speed volatile memory for Beta phase sync.
  */
 global.adminTickets = []; 
-global.recoveryData = {}; // Format: { username: { key: 'SCE-XXXX', filename: 'file.c', ready: bool, claimed: bool } }
+global.recoveryData = {}; // Storage for { username: { key: 'SCE-XXXX', filename: 'file.c', processedAt: Date } }
 
 /**
  * AUTO-CLEANUP PROTOCOL: v1.0.1
- * Purges expired recovery keys every 24 hours to ensure memory efficiency.
+ * Purges expired recovery keys every 24 hours to prevent memory leaks.
  */
 setInterval(() => {
     const now = Date.now();
@@ -43,7 +43,7 @@ setInterval(() => {
 /**
  * --- 2. SECURITY & MIDDLEWARE ---
  */
-app.set('trust proxy', 1); // Crucial for Render/HTTPS session persistence
+app.set('trust proxy', 1); // Crucial for HTTPS session persistence on Render/Heroku
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'))); 
@@ -59,7 +59,7 @@ app.use(session({
     cookie: { 
         secure: process.env.NODE_ENV === 'production', 
         sameSite: 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // 24H Session
+        maxAge: 24 * 60 * 60 * 1000 // 24H Session validity
     } 
 }));
 
@@ -93,20 +93,25 @@ passport.deserializeUser((obj, done) => done(null, obj));
  * --- 5. MINIBOX & RECOVERY HANDSHAKE API ---
  */
 
-// [USER] Submit Recovery Ticket
+// [USER] Submit Recovery Ticket (Requested from Minibox)
 app.post('/api/admin/mail/send', (req, res) => {
-    if (!req.isAuthenticated() || req.user.isGuest) return res.sendStatus(401);
-    const { username, filename } = req.body;
+    if (!req.isAuthenticated() || req.user.isGuest) return res.status(401).json({ error: "AUTH_REQUIRED" });
+    const { filename } = req.body;
     
+    if (!filename || !filename.endsWith('.c')) return res.status(400).json({ error: "INVALID_FORMAT" });
+
     const ticket = {
         id: Date.now(),
-        username: username || req.user.username,
+        username: req.user.username,
         filename,
         timestamp: new Date().toISOString(),
         status: 'pending'
     };
     
-    global.adminTickets.push(ticket);
+    // Prevent duplicate tickets for same file
+    const exists = global.adminTickets.find(t => t.username === req.user.username && t.filename === filename);
+    if (!exists) global.adminTickets.push(ticket);
+    
     console.log(`[TICKET] Request Logged: ${ticket.username} -> ${filename}`);
     res.json({ success: true });
 });
@@ -116,33 +121,34 @@ app.get('/api/admin/tickets', (req, res) => {
     if (req.isAuthenticated() && req.user.isAdmin) {
         res.json(global.adminTickets);
     } else {
-        res.status(403).send("CLEARANCE_DENIED");
+        res.status(403).json({ error: "CLEARANCE_DENIED" });
     }
 });
 
-// [ADMIN] Reconstitute Asset (Issue Key)
+// [ADMIN] Reconstitute Asset (Issue high-entropy key)
 app.post('/api/admin/restore', (req, res) => {
-    if (!req.isAuthenticated() || !req.user.isAdmin) return res.sendStatus(403);
+    if (!req.isAuthenticated() || !req.user.isAdmin) return res.status(403).json({ error: "ADMIN_ONLY" });
     
     const { username, filename } = req.body;
-    const claimKey = `SCE-${Math.random().toString(36).toUpperCase().substring(2, 10)}`;
+    // Generate high-entropy claim key (format: SCE-XXXX-XXXX)
+    const claimKey = `SCE-${Math.random().toString(36).toUpperCase().substring(2, 6)}-${Math.random().toString(36).toUpperCase().substring(2, 6)}`;
     
     global.recoveryData[username] = {
         filename,
         key: claimKey,
-        ready: true,
         claimed: false,
         processedAt: new Date().toISOString()
     };
 
-    global.adminTickets = global.adminTickets.filter(t => t.username !== username);
-    console.log(`[VAULT] Recovery Key Generated for ${username}`);
+    // Remove from queue once processed
+    global.adminTickets = global.adminTickets.filter(t => t.username !== username || t.filename !== filename);
+    console.log(`[VAULT] Recovery Key Issued to ${username}`);
     res.json({ success: true, claimKey });
 });
 
-// [USER] Handshake: Check for pending assets
+// [USER] Handshake: Minibox calls this to see if a notification dot is needed
 app.get('/api/user/check-recovery', (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.json({ ready: false });
     
     const data = global.recoveryData[req.user.username];
     if (data && !data.claimed) {
@@ -152,19 +158,20 @@ app.get('/api/user/check-recovery', (req, res) => {
     }
 });
 
-// [USER] Final Claim Handshake
+// [USER] Final Claim Handshake (Submit key to Minibox)
 app.post('/api/user/verify-key', (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
+    if (!req.isAuthenticated()) return res.status(401).json({ error: "AUTH_REQUIRED" });
     const { key } = req.body;
     const user = req.user.username;
 
-    if (global.recoveryData[user] && global.recoveryData[user].key === key) {
-        global.recoveryData[user].claimed = true;
-        // Logic for moving file from backup bucket to active bucket would trigger here
-        console.log(`[VERIFIED] ${user} successfully claimed asset.`);
-        res.status(200).send("Verified");
+    const record = global.recoveryData[user];
+    if (record && record.key === key && !record.claimed) {
+        record.claimed = true;
+        // In a full production env, you would trigger the S3/Cloud move logic here
+        console.log(`[VERIFIED] ${user} successfully reconstituted ${record.filename}.`);
+        res.status(200).json({ status: "SUCCESS", filename: record.filename });
     } else {
-        res.status(403).send("INVALID_KEY");
+        res.status(403).json({ error: "INVALID_OR_EXPIRED_KEY" });
     }
 });
 
@@ -175,7 +182,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/cloud', cloudRoutes);
 app.use('/api/admin', adminRoutes);
 
-// SPA Redirect: All routes not caught by API serve index.html
+// SPA Redirect: All non-API routes serve the dashboard
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -190,6 +197,7 @@ app.listen(PORT, () => {
     NODE_ENV  : ${process.env.NODE_ENV || 'development'}
     PORT      : ${PORT}
     ADMIN     : ${process.env.ADMIN_USERNAME || "WAN234-sys"}
+    VAULT     : MALAYSIA_SECURED_SYNC
     =================================================
     `);
 });

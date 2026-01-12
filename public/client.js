@@ -1,7 +1,7 @@
 /** * SCE v1.0.1 [BETA] - MASTER CLIENT CONTROLLER 
  * ---------------------------------------------------------
- * Architecture: Modular Component Injection & Neural Link Init
- * Purpose: Acts as the primary orchestrator for the frontend.
+ * Architecture: Modular Component Injection & Logic Sync
+ * Fixes: Search, Drag & Drop, UI Labels, and Identity Sync
  * ---------------------------------------------------------
  */
 
@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("%c[SYSTEM] v1.0.1 BETA Boot Sequence Initiated...", "color: #2ecc71; font-weight: bold;");
 
     // 1. COMPONENT INJECTION REGISTRY
-    // These IDs must match the <div> containers in your index.html
     const modules = [
         { id: 'comp-nav', file: 'nav.html' },
         { id: 'comp-repo', file: 'repo.html' },
@@ -20,108 +19,120 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     /**
      * ASYNC LOADER FUNCTION
-     * Fetches each HTML fragment and injects it into the DOM.
      */
     async function loadComponents() {
         try {
-            // Use Promise.all for parallel loading to improve boot speed
             await Promise.all(modules.map(async (mod) => {
                 const container = document.getElementById(mod.id);
-                if (!container) {
-                    console.warn(`[LOADER] Container ${mod.id} not found in index.html`);
-                    return;
-                }
+                if (!container) return;
 
                 const response = await fetch(`/components/${mod.file}`);
                 if (!response.ok) throw new Error(`HTTP_${response.status} while fetching ${mod.file}`);
                 
                 const htmlContent = await response.text();
                 container.innerHTML = htmlContent;
-                console.log(`[LOADER] ${mod.file} mounted successfully.`);
+                console.log(`[LOADER] ${mod.file} mounted.`);
             }));
 
-            // 2. LOGIC INITIALIZATION
-            // We only trigger these once the HTML components exist in the DOM
+            // 2. LOGIC INITIALIZATION (Triggered after HTML exists)
             initializeLogicEngines();
+            updateUILabels();
 
         } catch (err) {
             console.error("[CRITICAL] Component Injection Failure:", err);
-            // Fallback: Notify user if the UI fails to build
-            const body = document.querySelector('body');
-            if (body) {
-                body.innerHTML += `
-                    <div style="color: #ff4d4d; position: fixed; top: 0; left: 0; width: 100%; 
-                                background: #1a1a1a; padding: 10px; z-index: 9999; text-align: center;
-                                border-bottom: 2px solid #ff4d4d; font-family: monospace;">
-                        SYSTEM_HALT: UI Fragments Missing. Check Render Logs.
-                    </div>`;
-            }
+            document.body.innerHTML += `<div style="color:red; background:#000; position:fixed; top:0; width:100%; text-align:center; z-index:9999;">SYSTEM_HALT: UI Fragments Missing.</div>`;
         }
     }
 
     /**
+     * UI LABEL UPDATES
+     * Fixes: SC EXPLORER size and "Your Archive" text
+     */
+    function updateUILabels() {
+        // Update Title branding
+        const mainTitle = document.querySelector('.main-header h1') || document.querySelector('#sc-title');
+        if (mainTitle) {
+            mainTitle.innerText = "SC EXPLORER";
+            mainTitle.style.fontSize = "3.5rem"; // Make it big
+            mainTitle.style.fontWeight = "900";
+            mainTitle.style.letterSpacing = "8px";
+        }
+
+        // Update Archive label
+        const archiveLabel = document.getElementById('archive-title');
+        if (archiveLabel) archiveLabel.innerText = "Your Archive";
+    }
+
+    /**
      * NEURAL LINK & SESSION INIT
-     * Connects the brain (NoA.js) and identity (user.js).
      */
     function initializeLogicEngines() {
-        console.log("[SYSTEM] Connecting Logic Engines...");
-
-        // Start User Session (Identifies GitHub/Guest status)
+        // Start Identity Engine (Fixed 'SYNCHRONIZING_IDENTITY' hang)
         if (typeof initUserSession === 'function') {
             initUserSession();
-            console.log("[SYSTEM] Identity Engine: Online.");
-        } else {
-            console.warn("[SYSTEM] Identity Engine (user.js) missing.");
         }
 
-        // Start NoA Autonomous Brain (Monitoring inactivity/database)
-        if (typeof initNoA === 'function') {
+        // Start NoA (AI working fix)
+        if (window.NoA && typeof window.NoA.boot === 'function') {
+            window.NoA.boot();
+        } else if (typeof initNoA === 'function') {
             initNoA();
-            console.log("[SYSTEM] NoA AI Brain: Active.");
-        } else {
-            console.warn("[SYSTEM] NoA AI Brain (NoA.js) missing.");
         }
 
-        // Initialize UI event listeners
         setupGlobalInteractions();
     }
 
     /**
      * GLOBAL INTERACTION HANDLERS
+     * Fixes: Search, Drag & Drop, Terminal Close
      */
     function setupGlobalInteractions() {
-        // Handle Escape key to close any active terminals or overlays
-        window.addEventListener('keydown', (e) => {
-            if (e.key === "Escape") {
-                const noaTerm = document.getElementById('noa-terminal');
-                const adminTerm = document.getElementById('admin-terminal');
-                const claimModal = document.getElementById('claim-popup');
+        // 1. SEARCH FUNCTIONALITY FIX
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.file-row').forEach(row => {
+                    const fileName = row.querySelector('.file-info div')?.innerText.toLowerCase() || "";
+                    row.style.display = fileName.includes(term) ? 'flex' : 'none';
+                });
+            });
+        }
 
-                if (noaTerm) noaTerm.style.display = 'none';
-                if (adminTerm) adminTerm.style.display = 'none';
-                if (claimModal) claimModal.style.display = 'none';
-                
-                console.log("[UI] System overlay reset.");
+        // 2. DRAG & DROP UPLOAD FIX
+        const dropZone = document.getElementById('drop-zone') || document.body;
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(name => {
+            dropZone.addEventListener(name, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            if (window.currentUser?.isGuest) return; // Silent block for guests
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && typeof uploadFile === 'function') {
+                uploadFile(files[0]);
             }
         });
 
-        console.log("[SYSTEM] Interaction layer established.");
+        // 3. HOTKEYS (Escape to close)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape") {
+                ['noa-terminal', 'admin-terminal-overlay', 'claim-popup'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+            }
+        });
     }
 
-    // Trigger the boot sequence
     loadComponents();
 });
 
-/**
- * --- GLOBAL UTILITY: formatBytes ---
- * Standardized file size conversion for the UI.
- * Used by repo.html and NoA Diagnostic Reports.
- */
-function formatBytes(bytes, decimals = 2) {
+// GLOBAL UTILITY
+function formatBytes(bytes) {
     if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return parseFloat((bytes / Math.pow(1024, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB'][i];
 }

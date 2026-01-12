@@ -6,20 +6,24 @@ const NoA = {
     inactivityLimit: 45000, // 45 Seconds
     messages: {
         guest: [
-            "Session is volatile. Identity preservation recommended.",
-            "Restricted access detected. Redaction protocols active.",
-            "Are you exploring, or just passing through the gate?"
+            "SESSION_VOLATILE: Identity preservation recommended.",
+            "RESTRICTED_ACCESS: Redaction protocols active.",
+            "Identity unverified. Search and Transmission disabled.",
+            "Are you exploring, or just passing through the gate?",
+            "Neural link limited. Login via GitHub for full clearance."
         ],
         user: [
             "Neural link stable. Repository sync 100%.",
             "Waiting for source transmission...",
             "Your assets are secured in the Malaysia-Vault.",
-            "Need to reconstitute a file? Check the Minibox."
+            "Need to reconstitute a file? Check the Minibox.",
+            "System integrity optimal. Standing by."
         ],
         admin: [
-            "High-clearance detected. Administrator WAN234 online.",
+            "CLEARANCE_HIGH: Administrator WAN234 online.",
             "Ticket queue monitored. Verification keys ready.",
-            "System integrity optimal. All cloud syncs active."
+            "Bridge active. Monitoring repository health.",
+            "System root access granted. Welcome back."
         ]
     }
 };
@@ -36,16 +40,18 @@ function toggleNoATerminal() {
     const isVisible = term.style.display === 'flex';
     term.style.display = isVisible ? 'none' : 'flex';
     
-    // Hide thought bubble when terminal is opened
+    // Hide thought bubble when terminal is opened to clear UI
     if (bubble) bubble.style.display = 'none';
     
     if (!isVisible) {
         logToNoA("Neural interface expanded. Diagnostic active.");
+        // Auto-focus input for immediate interaction
+        setTimeout(() => document.getElementById('noa-input')?.focus(), 100);
     }
 }
 
 /**
- * 2. SYSTEM LOGGING
+ * 2. SYSTEM LOGGING (The Terminal Output)
  */
 function logToNoA(message, type = "SYS") {
     const output = document.getElementById('noa-output');
@@ -54,26 +60,34 @@ function logToNoA(message, type = "SYS") {
     const time = new Date().toLocaleTimeString([], { hour12: false });
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    entry.style.marginBottom = '5px';
-    entry.style.animation = 'fadeIn 0.3s ease-out';
+    entry.style.marginBottom = '8px';
+    entry.style.fontSize = '11px';
+    entry.style.opacity = '0';
+    entry.style.transition = 'opacity 0.3s ease-in';
+
+    // Color logic based on type
+    let typeColor = "var(--electric-green)";
+    if (type === "WARN") typeColor = "#ff4d4d";
+    if (type === "THOUGHT") typeColor = "var(--gold)";
 
     entry.innerHTML = `
-        <span class="log-time" style="color:#555; font-size:10px;">[${time}]</span>
-        <span class="log-sys" style="color:var(--electric-green); font-weight:bold;">[${type}]</span>
-        <span class="log-msg" style="color:#ccc;">${message}</span>
+        <span class="log-time" style="color:#555;">[${time}]</span>
+        <span class="log-sys" style="color:${typeColor}; font-weight:bold;">[${type}]</span>
+        <span class="log-msg" style="color:#d1d1d1;">${message}</span>
     `;
 
     output.appendChild(entry);
+    setTimeout(() => entry.style.opacity = '1', 10);
     output.scrollTop = output.scrollHeight;
 }
 
 /**
- * 3. INACTIVITY MONITORING
+ * 3. INACTIVITY MONITORING & DYNAMIC MESSAGING
  */
 function resetInactivityTimer() {
     clearTimeout(NoA.inactivityTimer);
     
-    // If NoA was "thinking" (bubble visible), hide it on movement
+    // Hide thought bubble on any user movement/activity
     const bubble = document.getElementById('noa-thought-bubble');
     if (bubble && bubble.style.display === 'block') {
         bubble.style.display = 'none';
@@ -85,7 +99,7 @@ function resetInactivityTimer() {
 }
 
 /**
- * 4. AUTONOMOUS INTERACTION
+ * 4. AUTONOMOUS INTERACTION (The "Thinking" Logic)
  */
 function triggerNoAThought() {
     const bubble = document.getElementById('noa-thought-bubble');
@@ -93,13 +107,20 @@ function triggerNoAThought() {
     
     if (!bubble || !msgSpan || !window.currentUser) return;
 
-    // Select messages based on User Role
+    // 1. Determine Identity Pool
     let pool = NoA.messages.user;
-    if (window.currentUser.isAdmin) pool = NoA.messages.admin;
-    if (window.currentUser.isGuest) pool = NoA.messages.guest;
+    if (window.currentUser.isAdmin || window.currentUser.username === 'WAN234-sys') {
+        pool = NoA.messages.admin;
+    } else if (window.currentUser.isGuest || window.currentUser.username === 'Guest') {
+        pool = NoA.messages.guest;
+        // Visual restricted state for Guest
+        document.getElementById('noa-wrapper').classList.add('noa-restricted');
+    }
 
+    // 2. Selection Logic
     const randomMsg = pool[Math.floor(Math.random() * pool.length)];
     
+    // 3. UI Execution
     msgSpan.innerText = randomMsg;
     bubble.style.display = 'block';
     
@@ -107,19 +128,41 @@ function triggerNoAThought() {
 }
 
 /**
- * 5. EVENT LISTENERS
+ * 5. INITIALIZATION & SYNC
  */
 document.addEventListener('mousemove', resetInactivityTimer);
 document.addEventListener('keypress', resetInactivityTimer);
 
-// Initial Boot Log
-window.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
+    // Sync NoA Visuals with Identity immediately
     setTimeout(() => {
-        logToNoA("SCE Core Bootstrapped.");
-        logToNoA(`Identity: ${window.currentUser?.username || "Anonymous"}`);
+        const username = window.currentUser?.username || "Anonymous";
+        const tag = document.getElementById('noa-clearance-tag');
         
-        if (window.currentUser?.newRestoreAvailable) {
-            logToNoA("CRITICAL: Asset reconstitution ready in Minibox.", "WARN");
+        logToNoA("SCE Neural Core Bootstrapped.");
+        logToNoA(`Link Verified: ${username}`);
+
+        if (window.currentUser?.isGuest) {
+            if (tag) tag.innerText = "GUEST_LINK";
+            logToNoA("WARN: Session is volatile. Interaction restricted.", "WARN");
+        } else if (window.currentUser?.isAdmin) {
+            if (tag) tag.innerText = "ADMIN_CLEARANCE";
+            logToNoA("Status: Administrator bridge operational.");
         }
-    }, 1000);
+
+        if (window.currentUser?.newRestoreAvailable) {
+            logToNoA("RECOVERY_PROTOCOL: Key reconstitution detected in Minibox.", "WARN");
+            const banner = document.getElementById('notif-banner');
+            if (banner) banner.style.display = 'flex';
+        }
+    }, 1200);
+});
+
+// Listener for the Send Button in noa.html
+document.getElementById('noa-send-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('noa-input');
+    if (input && input.value.trim()) {
+        logToNoA(input.value, "USER");
+        input.value = '';
+    }
 });

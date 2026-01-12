@@ -2,7 +2,8 @@
 
 /**
  * 1. MODAL VISIBILITY CONTROL
- * Triggers the success popup. Injected by verify.js upon valid handshake.
+ * Triggers the high-fidelity success popup. 
+ * Injected by verify.js upon a valid server-side handshake.
  */
 function showClaimPopup(key) {
     const popup = document.getElementById('claim-popup');
@@ -12,18 +13,16 @@ function showClaimPopup(key) {
         // Inject verified key into the modal
         keyDisplay.innerText = key;
         
-        // Deployment: Uses Flex for center-screen focus
+        // Deployment: Uses Flex for center-screen focus and activation of blur
         popup.style.display = 'flex';
         
         // Log to NoA Interface for narrative continuity
         if (window.logToNoA) {
-            window.logToNoA("UI_ALERT: Success Modal deployed.", "SYS");
+            window.logToNoA("UI_ALERT: Success Modal deployed. Asset freed.", "SYS");
         }
         
-        // Sound Engine Hook (Optional SCE Sound Kit)
-        if (window.playSuccessSound) window.playSuccessSound();
-        
-        console.log(`[UI] Reconstitution successful. Modal active for: ${key}`);
+        // Visual trigger for CSS animations (pulseGold)
+        console.log(`[UI] Reconstitution sequence complete. Target: ${key}`);
     } else {
         console.error("[UI] Critical Error: Success modal elements missing from DOM.");
     }
@@ -31,11 +30,12 @@ function showClaimPopup(key) {
 
 /**
  * 2. CLIPBOARD PROTOCOL
- * Handles high-entropy key copying with visual feedback.
+ * Handles secure key copying with reactive visual feedback in the modal.
  */
 async function copyKeyToClipboard() {
     const keyDisplay = document.getElementById('claim-key-display');
-    const feedbackLabel = document.querySelector('.key-container small');
+    const label = document.querySelector('.key-container small');
+    const successTip = document.getElementById('copy-success-tip');
     
     if (!keyDisplay) return;
 
@@ -44,30 +44,30 @@ async function copyKeyToClipboard() {
     try {
         await navigator.clipboard.writeText(keyText);
         
-        // Visual confirmation transition
-        if (feedbackLabel) {
-            const originalText = feedbackLabel.innerText;
-            feedbackLabel.innerText = "COPIED TO SYSTEM CLIPBOARD";
-            feedbackLabel.style.color = "var(--electric-green)";
-            feedbackLabel.style.fontWeight = "bold";
+        // Transition: Indicate success inside the UI
+        if (label) {
+            const originalText = label.innerText;
+            label.innerText = "SYSTEM_CLIPBOARD_LINKED";
+            label.style.color = "var(--electric-green)";
             
+            if (successTip) successTip.style.display = 'block';
+
             // Revert state after delay
             setTimeout(() => {
-                feedbackLabel.innerText = originalText;
-                feedbackLabel.style.color = "var(--gold)";
-                feedbackLabel.style.fontWeight = "normal";
-            }, 2500);
+                label.innerText = originalText;
+                label.style.color = "var(--gold)";
+                if (successTip) successTip.style.display = 'none';
+            }, 3000);
         }
     } catch (err) {
-        console.warn("[UI] Clipboard access denied. Manual selection required.");
-        // NoA fallback log
-        if (window.logToNoA) window.logToNoA("WARN: Clipboard link blocked by browser.", "ERR");
+        console.warn("[UI] Clipboard link severed by browser policy.");
+        if (window.logToNoA) window.logToNoA("WARN: Clipboard permission denied.", "ERR");
     }
 }
 
 /**
  * 3. MODAL DISMISSAL & RECOGNITION
- * Closes the view and ensures the 'Recovered' status is visible in the list.
+ * Closes the view and ensures the 'Recovered' status is visible in the file list.
  */
 function closeClaimPopup() {
     const popup = document.getElementById('claim-popup');
@@ -75,20 +75,20 @@ function closeClaimPopup() {
         popup.style.display = 'none';
     }
 
-    console.log("[UI] Modal dismissed. Syncing file archive...");
+    console.log("[UI] Modal dismissed. Executing archive re-sync...");
 
-    // Refresh the repository to show the '⭐' Recovered icon
+    // Refresh the repository list to display the ★ Gold Star status
     if (typeof window.fetchFiles === 'function') {
         window.fetchFiles();
     } else {
-        // Fallback for fragmented loads
+        // Fallback to full reload if cloud logic is detached
         window.location.reload();
     }
 }
 
 /**
  * 4. SYSTEM ACCESSIBILITY
- * Shortcut: [ESC] key terminates the modal view.
+ * Global listener for [ESC] to terminate the modal overlay.
  */
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -99,7 +99,7 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// Global export for verify.js and minibox.html
+// Explicit Global Export
 window.showClaimPopup = showClaimPopup;
 window.copyKeyToClipboard = copyKeyToClipboard;
 window.closeClaimPopup = closeClaimPopup;

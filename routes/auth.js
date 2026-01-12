@@ -5,20 +5,19 @@ const passport = require('passport');
 
 /**
  * --- 1. IDENTITY HANDSHAKE (v1.0.1) ---
- * Synchronizes Frontend/Server Global States.
- * Enhanced with NoA AI Intervention flags for autonomous guidance.
+ * FIXED: Path changed to '/status' to match 'user.js' fetch('/api/auth/status')
  */
-router.get('/user', (req, res) => {
+router.get('/status', (req, res) => {
     if (req.isAuthenticated()) {
         const username = req.user.username;
         const isAdmin = req.user.isAdmin || username === (process.env.ADMIN_USERNAME || "WAN234-sys");
-        const isGuest = req.user.isGuest || false;
+        const isGuest = req.user.isGuest || username.startsWith('Guest_');
         
-        // v1.0.1 BETA: Check for pending recovery keys in the global state
+        // Check for pending recovery keys
         const recoveryInfo = (!isGuest && global.recoveryData) ? global.recoveryData[username] : null;
         const hasPendingRecovery = recoveryInfo && recoveryInfo.ready && !recoveryInfo.claimed;
 
-        // Admin Alert: Check if there are new tickets in the queue for the Admin Terminal
+        // Admin Alert: Check queue
         const adminHasTickets = isAdmin && global.adminTickets && global.adminTickets.length > 0;
 
         res.json({
@@ -27,15 +26,14 @@ router.get('/user', (req, res) => {
             avatar: req.user.avatar || "https://github.com/identicons/user.png",
             isAdmin: isAdmin,
             isGuest: isGuest,
-            // Logic: High-priority flag triggers the red notification dot for both Users and Admins
             newRestoreAvailable: !!(hasPendingRecovery || adminHasTickets),
-            // NoA Context: Feeds the AI specialized state info to change its dialogue behavior
             aiContext: isGuest ? "RESTRICTED_EXPLORER" : "AUTHENTICATED_USER"
         });
     } else {
-        // NoA uses 'GATEWAY_ANONYMOUS' to proactively offer login assistance via the UI
         res.json({ 
             authenticated: false, 
+            isGuest: true,
+            username: "Guest",
             aiContext: "GATEWAY_ANONYMOUS" 
         });
     }
@@ -43,24 +41,14 @@ router.get('/user', (req, res) => {
 
 /**
  * --- 2. GITHUB OAUTH ---
- * Standard GitHub authentication scope.
  */
 router.get('/github', passport.authenticate('github', { scope: ['user:email'] }));
 
-/**
- * GITHUB CALLBACK
- * Handles successful login and forces session persistence before redirecting.
- */
 router.get('/github/callback', 
     passport.authenticate('github', { failureRedirect: '/' }),
     (req, res) => {
-        // v1.0.1 FIX: Force session commit to prevent 'authenticated: false' on fast page loads
         req.session.save((err) => {
-            if (err) {
-                console.error("[v1.0.1 AUTH] GitHub Sync Fail:", err);
-                return res.redirect('/');
-            }
-            console.log(`[v1.0.1 AUTH] Neural Link established for: ${req.user.username}`);
+            if (err) return res.redirect('/');
             res.redirect('/');
         });
     }
@@ -68,7 +56,6 @@ router.get('/github/callback',
 
 /**
  * --- 3. GUEST EXPLORER PROTOCOL ---
- * Assigns a volatile ID for read-only access to the repository.
  */
 router.get('/guest', (req, res) => {
     const guestProfile = {
@@ -80,31 +67,28 @@ router.get('/guest', (req, res) => {
     };
 
     req.login(guestProfile, (err) => {
-        if (err) {
-            console.error("[v1.0.1 AUTH] Guest Init Error:", err);
-            return res.redirect('/');
-        }
-        req.session.save(() => {
-            console.log(`[v1.0.1 AUTH] Volatile Session Created: ${guestProfile.username}`);
-            res.redirect('/');
-        });
+        if (err) return res.redirect('/');
+        req.session.save(() => res.redirect('/'));
     });
 });
 
 /**
- * --- 4. SECURE LOGOUT ---
- * Purges local session, destroys server-side session, and clears browser cookies.
+ * --- 4. SECURE LOGOUT (FIXED) ---
+ * Ensures the session is killed on the server and the cookie is cleared on the client.
  */
 router.get('/logout', (req, res) => {
     req.logout((err) => {
-        if (err) console.error("[v1.0.1 AUTH] Logout Error:", err);
+        if (err) console.error("[AUTH] Logout Error:", err);
         
+        // 1. Destroy the server-side session
         req.session.destroy((err) => {
-            if (err) console.error("[v1.0.1 AUTH] Session Destruct Error:", err);
+            if (err) console.error("[AUTH] Session Destruct Error:", err);
             
-            // Explicitly clear the connection cookie
+            // 2. Clear the browser cookie
             res.clearCookie('connect.sid', { path: '/' }); 
-            console.log("[v1.0.1 AUTH] Local Session Purged. Gateway Closed.");
+            
+            // 3. Force a full redirect to clean frontend state
+            res.set('Cache-Control', 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0');
             res.redirect('/');
         });
     });

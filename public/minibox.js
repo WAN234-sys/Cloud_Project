@@ -4,7 +4,7 @@ let mbTimer;
 
 /**
  * 1. TRIPLE-CLICK TRIGGER (Diagnostic Bridge)
- * Sequence: 3 clicks within 800ms on the chip icon to toggle the HUD.
+ * Sequence: 3 clicks within 800ms on the chip icon/header to toggle the HUD.
  */
 function handleMiniboxClick() {
     mbClicks++;
@@ -12,22 +12,21 @@ function handleMiniboxClick() {
     mbTimer = setTimeout(() => mbClicks = 0, 800);
 
     if (mbClicks === 3) {
-        const ui = document.getElementById('minibox-ui');
-        if (!ui) return;
+        const container = document.getElementById('minibox-container');
+        if (!container) return;
 
-        const isHidden = ui.style.display === 'none' || ui.style.display === '';
-        ui.style.display = isHidden ? 'block' : 'none';
+        // Toggle visibility with a 'terminal-active' class for styling if needed
+        const isHidden = container.style.display === 'none' || container.style.display === '';
+        container.style.display = isHidden ? 'block' : 'none';
         
         if (isHidden) {
             renderMiniboxContent();
-            // Reset notification dot if no pending items remain in the global user state
+            // Clear notification dot upon viewing
             const dot = document.getElementById('notif-dot');
-            if (dot && (!window.currentUser || !window.currentUser.newRestoreAvailable)) {
-                dot.style.display = 'none';
-            }
+            if (dot) dot.style.display = 'none';
         }
         mbClicks = 0;
-        if (window.playClickSound) window.playClickSound();
+        console.log("[MINIBOX] Diagnostic Bridge Toggled.");
     }
 }
 
@@ -36,133 +35,103 @@ function handleMiniboxClick() {
  * Logic: Pivots the HUD interface based on the Identity Handshake.
  */
 async function renderMiniboxContent() {
-    const container = document.getElementById('minibox-content');
     const vBox = document.getElementById('verify-box'); 
     const userDisplay = document.getElementById('mini-user-display');
+    const actionArea = document.querySelector('.minibox-actions');
     
-    if (!container) return;
-    if (userDisplay) userDisplay.innerText = window.currentUser?.username || "ANONYMOUS";
+    // Sync User Label
+    if (userDisplay) {
+        userDisplay.innerText = window.currentUser?.username || "UNVERIFIED";
+        userDisplay.style.color = window.currentUser?.isAdmin ? "var(--gold)" : "var(--electric-green)";
+    }
 
-    // Standard Reset: Verification input only shows when a restore is ready
-    if (vBox) vBox.style.display = 'none';
-
+    // 1. ADMIN LOGIC: Fetch the Service Queue
     if (window.currentUser?.isAdmin) {
-        /** CASE: ADMIN ENGINE (Ticket Management) **/
-        container.innerHTML = `
-            <h4 style="color:var(--gold); font-size:10px; margin-bottom:8px; letter-spacing:1px;">ADMIN_TICKET_QUEUE</h4>
-            <div id="ticket-list" class="mini-terminal-list">SYNCHRONIZING...</div>
-        `;
+        const adminTrigger = document.getElementById('admin-trigger');
+        if (adminTrigger) adminTrigger.style.display = 'block';
         
-        try {
-            const res = await fetch('/api/admin/tickets');
-            const tickets = await res.json();
-            const list = document.getElementById('ticket-list');
-            
-            if (list) {
-                list.innerHTML = tickets.length ? '' : '<p style="font-size:10px; color:#555; text-align:center;">Queue empty.</p>';
-                tickets.forEach(t => {
-                    list.innerHTML += `
-                        <div class="ticket-item" style="border-left: 2px solid var(--gold); padding-left:8px; margin-bottom:10px;">
-                            <div style="display:flex; justify-content:space-between; font-size:10px;">
-                                <strong style="color:var(--gold);">${t.username}</strong>
-                                <span style="opacity:0.4; font-size:8px;">${new Date(t.timestamp).toLocaleTimeString()}</span>
-                            </div>
-                            <div style="font-size:9px; color:#aaa; overflow:hidden; text-overflow:ellipsis;">${t.filename}</div>
-                        </div>`;
-                });
-            }
-        } catch (e) {
-            if (list) list.innerHTML = '<span style="color:#ff4d4d;">BRIDGE_OFFLINE</span>';
+        // Show the ticket queue in the minibox section if needed
+        if (vBox) {
+            vBox.innerHTML = `<h4 class="section-label">ADMIN_TICKET_QUEUE</h4><div id="ticket-list" style="font-size:9px; color:var(--text-muted);">Syncing...</div>`;
+            vBox.style.display = 'block';
+            fetchTicketQueue();
         }
-
-    } else if (window.currentUser?.isGuest) {
-        /** CASE: GUEST LOCK (Volatile Warning) **/
-        container.innerHTML = `
-            <div style="padding:10px; background:rgba(255,255,255,0.03); border-radius:5px;">
-                <h4 style="font-size:10px; color:#777; margin:0;">PROTOCOL_RESTRICTED</h4>
-                <p style="font-size:9px; color:#555; margin-top:8px; line-height:1.4;">
-                    Volatile sessions cannot generate recovery tickets. Accept TAW terms via GitHub login for full extraction rights.
-                </p>
-            </div>
-        `;
-    } else {
-        /** CASE: AUTHENTICATED USER (Standard Recovery) **/
-        
-        // Auto-show verification box if a key has already been granted by Admin
+    } 
+    
+    // 2. GUEST LOGIC: Lock interaction
+    else if (window.currentUser?.isGuest) {
+        if (vBox) {
+            vBox.innerHTML = `<p class="section-desc" style="color:#ff4d4d;">[RESTRICTED] Establish Neural Link via GitHub to request asset recovery.</p>`;
+            vBox.style.display = 'block';
+        }
+    } 
+    
+    // 3. USER LOGIC: Standard Recovery Check
+    else {
         if (window.currentUser?.newRestoreAvailable && vBox) {
             vBox.style.display = 'block';
         }
-
-        container.innerHTML = `
-            <h4 style="font-size:10px; color:var(--electric-green);">RECOVERY_TICKET</h4>
-            <p style="font-size:9px; color:var(--text-muted); margin:5px 0;">Request asset extraction from the SECURED Vault.</p>
-            <input type="text" id="req_file" placeholder="filename.c" class="mini-input" style="margin-bottom:5px;">
-            <button onclick="submitRecovery()" class="btn-claim" style="background:var(--electric-green); color:#000;">
-                SEND TO WAN234-SYS
-            </button>
-        `;
     }
 }
 
 /**
- * 3. TICKET TRANSMISSION
+ * 3. ADMIN: FETCH TICKET QUEUE
  */
-async function submitRecovery() {
-    const filenameInput = document.getElementById('req_file');
-    const filename = filenameInput.value.trim();
-
-    if (!filename || !filename.endsWith('.c')) {
-        return alert("VALIDATION_ERROR: Target must be a .c source file.");
-    }
-
+async function fetchTicketQueue() {
+    const list = document.getElementById('ticket-list');
     try {
-        const res = await fetch('/api/admin/mail/send', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                username: window.currentUser.username, 
-                filename: filename 
-            })
-        });
-
-        if (res.ok) {
-            alert("TRANSMISSION_SUCCESS: Ticket added to the Admin Service Queue.");
-            const ui = document.getElementById('minibox-ui');
-            if (ui) ui.style.display = 'none';
-            filenameInput.value = '';
-            if (window.playSuccessSound) window.playSuccessSound();
-        } else {
-            alert("BRIDGE_ERROR: Administrative bridge is currently unresponsive.");
+        const res = await fetch('/api/admin/tickets'); // Sync with admin routes
+        const tickets = await res.json();
+        
+        if (list) {
+            list.innerHTML = tickets.length > 0 ? '' : 'Queue Clear.';
+            tickets.forEach(t => {
+                list.innerHTML += `<div style="border-bottom:1px solid #333; padding:4px 0;">
+                    <span style="color:var(--gold);">${t.username}</span>: ${t.filename}
+                </div>`;
+            });
         }
     } catch (e) {
-        alert("PROTOCOL_CRITICAL: Sync failure.");
+        if (list) list.innerHTML = "OFFLINE";
     }
 }
 
 /**
  * 4. KEY VERIFICATION HANDLER
- * Final step: Injects the high-entropy key to move files from Vault to Repository.
+ * Final step: Reconstitutes the file from the Vault to the Community Archive.
  */
 async function verifyOwnership() {
     const input = document.getElementById('verify_key_input');
     const key = input.value.trim();
 
-    if (!key) return alert("INPUT_NULL: Key required.");
+    if (!key) return alert("INPUT_NULL: Recovery Key Required.");
 
     try {
+        // Change to the specific verification route in your server
         const res = await fetch('/api/user/verify-key', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ key: key })
         });
 
+        const result = await res.json();
+
         if (res.ok) {
-            alert("IDENTITY_VERIFIED: Asset reconstituted in community repository.");
-            location.reload(); 
+            alert("IDENTITY_VERIFIED: Asset successfully reconstituted.");
+            if (window.fetchFiles) window.fetchFiles(); // Refresh repository
+            document.getElementById('verify-box').style.display = 'none';
         } else {
-            alert("VERIFICATION_FAILED: Key mismatch or sequence expired.");
+            alert(`VERIFICATION_FAILED: ${result.error || 'Invalid Key'}`);
         }
     } catch (e) {
-        alert("FATAL_SYNC_ERROR: Handshake failed.");
+        console.error("[MINIBOX] Sync Error:", e);
+        alert("PROTOCOL_CRITICAL: Handshake failed.");
     }
 }
+
+// Attach listener to the icon in the injected HTML once loaded
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.status-text') || e.target.closest('.minibox-header')) {
+        handleMiniboxClick();
+    }
+});

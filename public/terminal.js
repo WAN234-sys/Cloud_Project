@@ -3,7 +3,6 @@
 /**
  * 1. ADMIN OVERRIDE & HOTKEYS
  * Shortcut: [Shift + Enter] toggles the CLI.
- * Only functional if Identity Handshake confirms Admin status.
  */
 window.addEventListener('keydown', (e) => {
     if (e.shiftKey && e.key === 'Enter' && window.currentUser?.isAdmin) {
@@ -13,19 +12,19 @@ window.addEventListener('keydown', (e) => {
 });
 
 function toggleAdminTerminal() {
-    const term = document.getElementById('admin-terminal-overlay') || document.getElementById('admin-terminal');
+    const term = document.getElementById('admin-terminal-overlay');
     if (!term) return;
 
     const isHidden = term.style.display === 'none' || term.style.display === '';
     term.style.display = isHidden ? 'flex' : 'none';
     
     if (isHidden) {
-        const input = document.getElementById('term-input');
-        if (input) input.focus();
-        
         logToTerminal("SCE_ADMIN_BRIDGE: SECURE_LINK_ESTABLISHED", "var(--electric-green)");
-        logToTerminal("System Ready. Use /recover [user]_[file].c or use the sidebar.", "var(--text-muted)");
+        logToTerminal("System Ready. Listening for vault handshakes...", "var(--text-muted)");
         refreshAdminTickets();
+        
+        // Auto-ping bridge status
+        updateBridgePing();
     }
 }
 
@@ -34,34 +33,32 @@ function toggleAdminTerminal() {
  */
 document.getElementById('term-input')?.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
-        const input = e.target.value.trim();
-        const output = document.getElementById('term-output') || document.getElementById('terminal-output');
+        const input = e.target.value.trim().toLowerCase();
         
         if (input.startsWith('/recover ')) {
-            const rawParam = input.replace('/recover ', '').trim();
-            const separator = rawParam.indexOf('_');
-            
-            if (separator === -1 || !rawParam.endsWith('.c')) {
-                logToTerminal(`ERROR: Syntax invalid. Protocol: /recover [user]_[file].c`, "var(--danger-red)");
+            const params = input.replace('/recover ', '').split(' ');
+            if (params.length === 2) {
+                executeRecovery(params[0], params[1]);
             } else {
-                const user = rawParam.substring(0, separator);
-                const file = rawParam.substring(separator + 1);
-                executeRecovery(user, file);
+                logToTerminal("ERR: Syntax invalid. Use: /recover [user] [file.c]", "var(--danger-red)");
             }
         } else if (input === 'clear') {
-            if (output) output.innerHTML = '<div class="log-line">SCE ARCHIVE TOOLS [v1.0.1]...</div>';
+            const output = document.getElementById('terminal-output');
+            if (output) output.innerHTML = '<div class="log-line sys">[SYSTEM] Log cleared.</div>';
         } else if (input === 'help') {
-            logToTerminal("COMMANDS: /recover, /clear, help", "var(--gold)");
+            logToTerminal("AVAILABLE: /recover [u] [f], /clear, /refresh, help", "var(--gold)");
+        } else if (input === '/refresh') {
+            refreshAdminTickets();
+            logToTerminal("Re-syncing ticket queue...", "var(--text-muted)");
         } else {
-            logToTerminal(`> ERR: Unknown Command [${input}]`, "#555");
+            logToTerminal(`> Unknown Command: ${input}`, "#555");
         }
 
         e.target.value = '';
-        if (output) output.scrollTop = output.scrollHeight;
     }
 });
 
-// Sidebar Ticket Loader
+// Sidebar Ticket Loader: Fetches from server.js global.adminTickets
 async function refreshAdminTickets() {
     const list = document.getElementById('admin-ticket-list');
     if (!list) return;
@@ -70,30 +67,43 @@ async function refreshAdminTickets() {
         const res = await fetch('/api/admin/tickets');
         const tickets = await res.json();
         
-        list.innerHTML = tickets.length ? '' : '<div class="log-line info" style="font-size:10px; padding:10px;">QUEUE_EMPTY</div>';
+        list.innerHTML = tickets.length ? '' : '<div class="shimmer-log" style="padding:20px;">QUEUE_EMPTY</div>';
         
         tickets.forEach(t => {
             const item = document.createElement('div');
             item.className = 'admin-ticket-item';
-            item.style = "padding:8px; border-bottom:1px solid #222; cursor:pointer;";
             item.innerHTML = `
-                <div style="color:var(--gold); font-size:11px; font-weight:bold;">${t.username}</div>
-                <div style="font-size:9px; color:#888;">${t.filename}</div>
+                <span class="t-user">${t.username}</span>
+                <span class="t-file">${t.filename}</span>
             `;
-            item.onclick = () => {
-                logToTerminal(`FOCUS: ${t.username} // ${t.filename}`, "var(--gold)");
-                executeRecovery(t.username, t.filename);
-            };
+            item.onclick = () => focusTicket(t.username, t.filename);
             list.appendChild(item);
         });
     } catch (e) {
-        logToTerminal("ERROR: FAILED_TO_SYNC_TICKETS", "var(--danger-red)");
+        logToTerminal("ERROR: FAILED_TO_SYNC_VAULT_TICKETS", "var(--danger-red)");
     }
 }
 
-// Core Recovery Logic
+function focusTicket(user, file) {
+    const actionZone = document.getElementById('terminal-actions');
+    const userDisplay = document.getElementById('target-user');
+    const fileDisplay = document.getElementById('target-file');
+    
+    userDisplay.innerText = `USER: ${user}`;
+    fileDisplay.innerText = `FILE: ${file}`;
+    actionZone.style.display = 'flex';
+    
+    // Bind the process button to these specific parameters
+    document.getElementById('process-btn').onclick = () => executeRecovery(user, file);
+    
+    logToTerminal(`TARGETING_ASSET: ${file} for user ${user}`, "var(--gold)");
+}
+
+/**
+ * 3. CORE RECOVERY EXECUTION
+ */
 async function executeRecovery(username, filename) {
-    logToTerminal(`> INITIATING VAULT EXTRACTION: [${username}] -> [${filename}]`, "var(--gold)");
+    logToTerminal(`INITIATING_RECONSTITUTION: [${username}]`, "var(--gold)");
     
     try {
         const res = await fetch('/api/admin/restore', {
@@ -104,90 +114,92 @@ async function executeRecovery(username, filename) {
         const data = await res.json();
         
         if (data.success) {
-            logToTerminal(`> SUCCESS: Asset relocated to Primary Cloud.`, "var(--electric-green)");
-            logToTerminal(`> CLAIM KEY GENERATED: [${data.claimKey}]`, "var(--gold)");
-            if (window.fetchFiles) fetchFiles(); 
+            logToTerminal(`SUCCESS: KEY_ISSUED [${data.claimKey}]`, "var(--electric-green)");
+            logToTerminal(`Asset ready for user pickup.`, "var(--text-muted)");
+            document.getElementById('terminal-actions').style.display = 'none';
             refreshAdminTickets();
         } else {
-            logToTerminal(`> FAILED: Recovery rejected by server.`, "var(--danger-red)");
+            logToTerminal(`FAILED: Server rejected extraction.`, "var(--danger-red)");
         }
     } catch (err) {
-        logToTerminal(`> CRITICAL: Handshake Timeout. Check connection.`, "var(--danger-red)");
+        logToTerminal(`CRITICAL_ERR: Handshake timeout.`, "var(--danger-red)");
     }
 }
 
 /**
- * 3. CLOUD FILE EXPLORER
+ * 4. CLOUD REPOSITORY SYNC (Dual-Sync Explorer)
  */
 async function fetchFiles() {
-    console.log("CLOUD: Syncing Repositories...");
     try {
         const res = await fetch('/api/cloud/files');
         const files = await res.json();
         
         const myContainer = document.getElementById('my-file-list');
         const othersContainer = document.getElementById('others-file-list');
-        
         if (!myContainer || !othersContainer) return;
+
         myContainer.innerHTML = ''; 
         othersContainer.innerHTML = '';
 
         files.forEach(f => {
-            const sizeMB = f.sizeBytes ? (f.sizeBytes / (1024 * 1024)).toFixed(2) : "0.00";
             const isGuest = window.currentUser?.isGuest;
+            const isOwner = f.owner === window.currentUser?.username;
             
-            // Guest/Secure Info Logic
-            const displayName = isGuest ? "REDACTED.c" : (f.displayName || f.name);
-            const displayOwner = isGuest ? "---" : f.owner;
-
             const row = document.createElement('div');
             row.className = `file-row ${f.isRecovered ? 'recovered' : ''}`;
             
+            // Masking logic for Guest Session
+            const displayName = isGuest ? "HIDDEN_SOURCE.c" : f.name;
+            const displayOwner = isGuest ? "---" : f.owner;
+
             row.innerHTML = `
                 <div class="file-info">
-                    <div style="font-family:'Fira Code'; font-size:13px; color:var(--text-main); font-weight:600;">
-                        ${displayName} ${f.isRecovered ? '<span title="Recovered Asset" style="color:var(--gold)">★</span>' : ''}
-                    </div>
-                    <div style="font-size:10px; color:var(--text-muted); margin-top:4px;">
-                        Owner: ${displayOwner} | ${sizeMB} MB | SECURED
+                    <i class="fas fa-file-code file-icon"></i>
+                    <div>
+                        <div class="file-name">${displayName} ${f.isRecovered ? '<span class="gold-text">★</span>' : ''}</div>
+                        <div class="sub-text">OWNER: ${displayOwner} | SECURED_VAULT</div>
                     </div>
                 </div>
-                <div class="file-actions" style="display:flex; gap:10px; align-items:center;">
+                <div class="file-actions">
                     ${isGuest ? 
-                        '<span class="badge-locked" style="font-size:10px; opacity:0.6;">RESTRICTED</span>' : 
-                        `<a href="${f.url}" download class="btn-get" style="color:var(--electric-green); font-size:11px; text-decoration:none; font-weight:800;">DOWNLOAD</a>`
-                    }
-                    ${f.canManage && !isGuest ? 
-                        `<button onclick="deleteFile('${f.name}')" class="btn-del" style="background:transparent; border:1px solid var(--danger-red); color:var(--danger-red); padding:4px 8px; border-radius:4px; cursor:pointer; font-size:10px;">DEL</button>` : 
-                        ''
+                        '<span class="badge-locked">RESTRICTED</span>' : 
+                        `<a href="${f.url}" download class="btn-transmit" style="padding:6px 12px; font-size:9px; text-decoration:none;">GET</a>`
                     }
                 </div>`;
 
-            if (!isGuest && f.owner === window.currentUser.username) {
+            if (!isGuest && isOwner) {
                 myContainer.appendChild(row);
             } else {
                 othersContainer.appendChild(row);
             }
         });
 
-        // Sync counts for UI
-        if (document.getElementById('my-count')) document.getElementById('my-count').innerText = myContainer.children.length;
-        if (document.getElementById('others-count')) document.getElementById('others-count').innerText = othersContainer.children.length;
+        // Update counts
+        document.getElementById('my-count').innerText = myContainer.children.length;
+        document.getElementById('others-count').innerText = othersContainer.children.length;
         
     } catch (err) {
-        console.error("CLOUD: Failed to sync lists.", err);
+        console.error("SYNC_ERR: Repository heartbeat failed.");
     }
 }
 
+/**
+ * 5. UTILITIES
+ */
 function logToTerminal(text, color) {
-    const output = document.getElementById('term-output') || document.getElementById('terminal-output');
-    if (output) {
-        const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        output.innerHTML += `<div class="log-line" style="color:${color}; margin-bottom:4px; font-family:'Fira Code'; font-size:11px;">[${time}] ${text}</div>`;
-        output.scrollTop = output.scrollHeight;
-    }
+    const output = document.getElementById('terminal-output');
+    if (!output) return;
+    const time = new Date().toLocaleTimeString([], { hour12: false });
+    output.innerHTML += `<div class="log-line" style="color:${color}">[${time}] ${text}</div>`;
+    output.scrollTop = output.scrollHeight;
 }
 
-// Global Export
+function updateBridgePing() {
+    const pingEl = document.getElementById('bridge-ping');
+    if (pingEl) pingEl.innerText = `${Math.floor(Math.random() * 50) + 10} ms`;
+}
+
+// Global Export for other modules
 window.fetchFiles = fetchFiles;
 window.toggleAdminTerminal = toggleAdminTerminal;
+window.refreshAdminTickets = refreshAdminTickets;

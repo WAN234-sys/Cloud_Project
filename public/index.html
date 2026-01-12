@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SCE v1.0.1 BETA | NEURAL REPOSITORY</title>
+    <title>SC EXPLORER v1.0.1 BETA</title>
     
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Space+Grotesk:wght@300;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -16,7 +16,8 @@
 
     <div id="auth-section" class="container">
         <div class="login-box" style="text-align: center; margin-top: 5vh;">
-            <h2 id="bridge-label" style="letter-spacing: 3px; font-weight: 300;">IDENTITY GATEWAY</h2>
+            <h2 id="bridge-label" style="letter-spacing: 5px; font-weight: 700; color: var(--electric-green);">SC EXPLORER</h2>
+            <p style="font-size: 10px; margin-bottom: 30px; color: var(--text-muted);">IDENTITY VERIFICATION REQUIRED</p>
             
             <div class="app-grid">
                 <div class="app-box"><i class="fas fa-cube"></i><span>Code::Blocks</span></div>
@@ -26,7 +27,7 @@
             </div>
 
             <div class="auth-buttons" style="margin-top: 30px;">
-                <a href="/api/auth/github" id="ghBtn" class="btn-auth gh-btn disabled">
+                <a href="/api/auth/github" id="ghBtn" class="btn-auth gh-btn disabled" style="opacity: 0.3; pointer-events: none;">
                     <i class="fab fa-github"></i> GITHUB SECURE LOGIN
                 </a>
                 <a href="/api/auth/guest" id="guestBtn" class="btn-auth guest-btn">
@@ -54,15 +55,16 @@ Developer: WAN234-sys
 
 2. GUEST ACCESS
 2.1 Volatile sessions: No data persistence.
-2.2 Community IP is redacted for Guest users.
+2.2 Community IP is redacted/locked for Guest users.
+2.3 Guests cannot search or upload assets.
                 </pre>
             </div>
         </div>
     </div>
 
     <div id="main-ui" style="display:none;" class="container">
-        <div id="app-title" style="cursor:pointer; user-select:none; margin-top: 20px;">
-            <span class="glow-word" style="color:var(--electric-green);">SCE</span>
+        <div id="app-title" class="branding-header">
+            <span class="glow-word" style="color:var(--electric-green);">SC</span>
             <span class="glow-word">EXPLORER</span>
         </div>
 
@@ -79,20 +81,14 @@ Developer: WAN234-sys
             <h3>RECOVERY GRANTED</h3>
             <p style="font-size:12px; color:var(--text-muted);">The Administrator has reconstituted your asset.</p>
             
-            <div class="key-container" onclick="copyKeyToClipboard()">
+            <div class="key-container" id="copy-trigger">
                 <span id="claim-key-display">XXXX-XXXX</span>
                 <small style="display:block; font-size:9px; color:var(--text-muted); margin-top:8px;">(CLICK TO COPY KEY)</small>
             </div>
             
-            <button onclick="closeClaimPopup()" class="btn-transmit" style="width:100%;">ACKNOWLEDGE RECEIPT</button>
+            <button onclick="document.getElementById('claim-popup').style.display='none'" class="btn-transmit" style="width:100%;">ACKNOWLEDGE RECEIPT</button>
         </div>
     </div>
 
-    <script src="/user.js"></script>
-    <script src="/guest.js"></script>
-    <script src="/core.js"></script>
-    <script src="/NoA.js"></script>
-    <script src="/client.js"></script>
-
-</body>
+    <script src="/user.js"></script>    <script src="/guest.js"></script>   <script src="/core.js"></script>    <script src="/NoA.js"></script>     <script src="/client.js"></script>  </body>
 </html>

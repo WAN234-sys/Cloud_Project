@@ -1,6 +1,6 @@
 /** SCE v1.0.1 [BETA] - IDENTITY & HANDSHAKE ENGINE **/
 
-// Global User State
+// Global User State - Synchronized with Server Session
 window.currentUser = {
     username: 'Guest',
     avatar: null,
@@ -12,7 +12,7 @@ window.currentUser = {
 
 /**
  * 1. IDENTITY INITIALIZATION
- * Fetches session data and toggles between the Login Gateway and the Main HUD.
+ * Bridges the Gateway (Login) and the Main UI.
  */
 async function initUserSession() {
     try {
@@ -25,59 +25,65 @@ async function initUserSession() {
                 newRestoreAvailable: false
             };
             
-            // Transition to System UI
-            const authSection = document.getElementById('auth-section');
-            const mainUI = document.getElementById('main-ui');
-            const minibox = document.getElementById('minibox-trigger');
+            // Transition Logic: Hide Gateway, Reveal Dashboard
+            const gateway = document.getElementById('auth-section');
+            const dashboard = document.getElementById('main-ui');
+            const miniboxTrigger = document.getElementById('minibox-trigger');
 
-            if (authSection) authSection.style.display = 'none';
-            if (mainUI) mainUI.style.display = 'block';
-            if (minibox) minibox.style.display = 'flex';
+            if (gateway) gateway.style.display = 'none';
+            if (dashboard) dashboard.style.display = 'block';
+            if (miniboxTrigger) miniboxTrigger.style.display = 'flex';
             
             renderProfile();
             
-            // Start Background Handshake Protocol
+            // Activate High-Level Handshakes
             startRecoveryHandshake();
             
-            // Trigger initial Cloud Asset Sync
+            // Trigger Cloud Asset Fetch
             if (window.fetchFiles) window.fetchFiles();
+            
+            console.log(`[SYS] Identity Verified: ${window.currentUser.username}`);
         }
     } catch (err) {
-        console.warn("SCE_SESSION: Standing by at Gateway. Authentication required.");
+        console.warn("SCE_SESSION: Gateway active. Waiting for Auth handshake.");
     }
 }
 
 /**
  * 2. PROFILE RENDERING
- * Injects the identity card into the Navigation Hub.
+ * Injects verified credentials into the Navigation Hub.
  */
 function renderProfile() {
     const anchor = document.getElementById('profile-anchor');
     if (!anchor) return;
 
-    const roleTag = window.currentUser.isAdmin ? '<span class="badge-admin">ADMIN</span>' : '';
-    const sessionLabel = window.currentUser.isGuest ? 'VOLATILE_SESSION' : 'SECURED_VIA_TAW';
+    const isAdmin = window.currentUser.isAdmin;
+    const isGuest = window.currentUser.isGuest;
+    
+    const roleBadge = isAdmin ? '<span class="badge-admin">ADMIN_LINK</span>' : '';
+    const sessionType = isGuest ? 'VOLATILE_GUEST' : 'SECURED_ID';
 
     anchor.innerHTML = `
         <div class="profile-card">
             <div class="profile-info">
-                <span class="nav-username">${window.currentUser.username} ${roleTag}</span>
-                <span class="nav-logout-wrap">
-                    <span style="font-size:8px; color:var(--text-muted);">${sessionLabel}</span>
-                    <a href="/api/auth/logout" class="nav-logout" title="Terminate Link"> // DISCONNECT</a>
-                </span>
+                <div class="nav-username">${window.currentUser.username} ${roleBadge}</div>
+                <div class="nav-meta">
+                    <span class="status-indicator">ONLINE</span>
+                    <span class="session-label">${sessionType}</span>
+                    <a href="/api/auth/logout" class="nav-logout"> // TERMINATE</a>
+                </div>
             </div>
-            <img src="${window.currentUser.avatar || 'https://via.placeholder.com/32'}" class="nav-avatar">
+            <img src="${window.currentUser.avatar || 'assets/default-avatar.png'}" class="nav-avatar">
         </div>
     `;
 }
 
 /**
  * 3. RECOVERY HANDSHAKE PROTOCOL
- * Periodically polls the server to see if an Admin reconstituted an asset.
+ * Asynchronous polling to check for Admin-released keys in the Vault.
  */
 async function startRecoveryHandshake() {
-    // Only authenticated, non-guest users participate in TAW recovery
+    // Guests do not have Vault access
     if (window.currentUser.isGuest || !window.currentUser.authenticated) return;
 
     const checkVault = async () => {
@@ -88,30 +94,29 @@ async function startRecoveryHandshake() {
             if (data.ready) {
                 window.currentUser.newRestoreAvailable = true;
                 
-                // Trigger the Minibox Visual Notification (Red Dot)
+                // 1. Visual Notification Dot
                 const dot = document.getElementById('notif-dot');
                 if (dot) dot.style.display = 'block';
                 
-                // If NoA is online, log the event to her terminal
-                if (window.logToNoA) {
-                    window.logToNoA(`NOTIFICATION: Asset [${data.filename}] reconstituted. Key ready.`, "INFO");
+                // 2. NoA Terminal Injection
+                if (window.noa && typeof window.noa.log === 'function') {
+                    window.noa.log("CRITICAL: Reconstitution protocol authorized for " + data.filename, "WARN");
                 }
 
-                // If the user currently has the Minibox UI open, refresh its content
-                const miniboxUI = document.getElementById('minibox-ui');
-                if (miniboxUI && miniboxUI.style.display === 'block') {
-                    if (window.renderMiniboxContent) window.renderMiniboxContent();
+                // 3. Dynamic Minibox Refresh
+                if (window.renderMiniboxContent) {
+                    window.renderMiniboxContent();
                 }
             }
         } catch (e) {
-            console.error("SCE_HANDSHAKE: Signal lost. Retrying...");
+            console.error("[SYS] Handshake Signal Interrupted.");
         }
     };
 
-    // Immediate check on boot, then every 45 seconds to minimize server load
+    // Initial check + 45s interval for performance optimization
     checkVault();
     setInterval(checkVault, 45000);
 }
 
-// Global initialization
+// Global initialization on DOM Ready
 document.addEventListener('DOMContentLoaded', initUserSession);

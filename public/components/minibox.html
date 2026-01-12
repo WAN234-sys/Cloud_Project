@@ -1,19 +1,19 @@
 <div id="minibox-container" class="minibox-shell">
     
     <div class="minibox-header">
-        <span class="status-text"><i class="fas fa-microchip"></i> SYSTEM_MINIBOX</span>
-        <div id="notif-dot" class="pulse-red" style="display: none;"></div>
+        <span class="status-text"><i class="fas fa-microchip"></i> SYSTEM_MINIBOX v1.0.1</span>
+        <div id="notif-dot" class="pulse-red"></div>
     </div>
 
-    <div id="verify-box" class="minibox-section" style="display: none;">
+    <div id="verify-box" class="minibox-section">
         <div class="divider-gold"></div>
         <h4 class="section-label">ASSET_RECOVERY_PROTOCOL</h4>
-        <p class="section-desc">Input high-entropy claim key to reconstitute your .c source file.</p>
+        <p class="section-desc">Input high-entropy claim key to reconstitute your .c source file from the vault.</p>
         
         <div class="input-wrapper">
             <input type="text" id="verify_key_input" placeholder="XXXX-XXXX" class="mini-input">
-            <button onclick="verifyOwnership()" class="btn-claim">
-                <i class="fas fa-unlock-alt"></i> CLAIM
+            <button onclick="verifyOwnership()" id="claim-btn" class="btn-claim">
+                <i class="fas fa-unlock-alt"></i> CLAIM_ASSET
             </button>
         </div>
         <div class="divider-gold"></div>
@@ -25,22 +25,23 @@
         </button>
 
         <div id="minibox-identity" class="identity-report">
-            <small>LOGGED_AS:</small>
-            <span id="mini-user-display">UNVERIFIED</span>
+            <small>SESSION_STATUS:</small>
+            <span id="mini-user-display">PENDING_SYNC...</span>
         </div>
     </div>
 </div>
 
 <style>
-/* Minibox Component Specific Styles */
+/* Minibox Component Specific Styles - SC EXPLORER THEME */
 .minibox-shell {
-    background: var(--card-bg);
-    border: 1px solid var(--gh-border);
+    background: var(--card-bg, #0d1117);
+    border: 1px solid var(--gh-border, #30363d);
     border-radius: 12px;
-    padding: 15px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    padding: 18px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7);
     margin-top: 20px;
     font-family: 'Fira Code', monospace;
+    border-left: 3px solid var(--electric-green, #00ff41);
 }
 
 .minibox-header {
@@ -52,37 +53,48 @@
 
 .status-text {
     font-size: 10px;
-    color: var(--electric-green);
-    letter-spacing: 1px;
+    color: var(--electric-green, #00ff41);
+    letter-spacing: 1.5px;
     font-weight: bold;
 }
 
+/* Dynamic Notification Dot */
 .pulse-red {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     background: #ff4d4d;
     border-radius: 50%;
-    box-shadow: 0 0 8px #ff4d4d;
-    animation: pulse-ring 1.5s infinite;
+    box-shadow: 0 0 10px #ff4d4d;
+    animation: pulse-ring 2s infinite;
+}
+
+.pulse-green {
+    width: 10px;
+    height: 10px;
+    background: var(--electric-green);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--electric-green);
 }
 
 .minibox-section {
-    background: rgba(255, 215, 0, 0.05);
-    padding: 10px;
+    background: rgba(255, 215, 0, 0.03);
+    padding: 12px;
     border-radius: 8px;
     margin-bottom: 15px;
+    border: 1px dashed rgba(255, 215, 0, 0.2);
 }
 
 .section-label {
-    color: var(--gold);
+    color: var(--gold, #ffd700);
     font-size: 10px;
     margin: 5px 0;
+    letter-spacing: 1px;
 }
 
 .section-desc {
     font-size: 9px;
-    color: var(--text-muted);
-    line-height: 1.4;
+    color: var(--text-muted, #8b949e);
+    line-height: 1.5;
 }
 
 .mini-input {
@@ -90,12 +102,19 @@
     background: #000;
     border: 1px solid var(--gh-border);
     color: var(--gold);
-    font-size: 14px;
+    font-size: 16px;
     text-align: center;
-    padding: 8px;
-    margin: 10px 0;
+    padding: 10px;
+    margin: 12px 0;
     border-radius: 4px;
     text-transform: uppercase;
+    outline: none;
+    transition: 0.3s;
+}
+
+.mini-input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
 }
 
 .btn-claim {
@@ -103,17 +122,26 @@
     background: var(--gold);
     color: #000;
     border: none;
-    padding: 10px;
-    font-weight: bold;
+    padding: 12px;
+    font-weight: 900;
     font-size: 11px;
     cursor: pointer;
     border-radius: 4px;
-    transition: 0.2s;
+    transition: 0.3s;
+    text-transform: uppercase;
 }
 
 .btn-claim:hover {
     background: #fff;
-    box-shadow: 0 0 15px var(--gold);
+    box-shadow: 0 0 20px var(--gold);
+    transform: translateY(-1px);
+}
+
+.minibox-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
 }
 
 .identity-report {
@@ -122,17 +150,25 @@
     font-size: 9px;
     color: var(--text-muted);
     border-left: 2px solid var(--electric-green);
-    padding-left: 10px;
+    padding-left: 12px;
 }
 
 #mini-user-display {
-    color: var(--text-main);
+    color: var(--text-main, #c9d1d9);
     font-weight: bold;
+    font-size: 11px;
+}
+
+.divider-gold {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    margin: 8px 0;
+    opacity: 0.3;
 }
 
 @keyframes pulse-ring {
-    0% { transform: scale(0.9); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.5; }
-    100% { transform: scale(0.9); opacity: 1; }
+    0% { transform: scale(0.95); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.7; }
+    100% { transform: scale(0.95); opacity: 1; }
 }
 </style>

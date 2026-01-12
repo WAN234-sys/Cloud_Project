@@ -1,226 +1,225 @@
 /* --- 1. NEURAL DESIGN SYSTEM (Variables) --- */
 :root {
-    /* Dark Theme (Default) */
-    --bg-main: #0a090f; 
-    --card-bg: #14121d;
-    --text-main: #ffffff;
-    --text-muted: #8b8b94;
-    --gh-border: #2d2b3b; 
-    --glass: rgba(20, 18, 29, 0.85);
+    /* Core Palette: Dark Theme */
+    --bg-main: #0d1117; 
+    --card-bg: #161b22;
+    --text-main: #c9d1d9;
+    --text-muted: #8b949e;
+    --gh-border: #30363d; 
+    --glass: rgba(13, 17, 23, 0.85);
     
     /* Functional Accents */
-    --electric-green: #2ecc71; 
-    --danger-red: #e74c3c;
+    --electric-green: #00ff41; /* Neo-Matrix Green */
+    --danger-red: #ff4d4d;
     --gold: #ffd700;
-    --terminal-bg: #050505;
+    --terminal-bg: #010409;
     --pure-white: #ffffff;
-    --system-font: 'Space Grotesk', sans-serif;
-    --code-font: 'Fira Code', monospace;
+    
+    /* Typography */
+    --system-font: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    --code-font: 'Fira Code', 'Roboto Mono', monospace;
 }
 
-/* Light Theme Overrides */
+/* Light Theme Overrides (Optional Toggle) */
 body.light-theme {
-    --bg-main: #f0f2f5;
+    --bg-main: #f6f8fa;
     --card-bg: #ffffff;
-    --text-main: #1a1a1a;
-    --text-muted: #65676b;
-    --gh-border: #d1d1d6;
+    --text-main: #24292f;
+    --text-muted: #57606a;
+    --gh-border: #d0d7de;
     --glass: rgba(255, 255, 255, 0.9);
-    --terminal-bg: #f8f9fa;
+    --terminal-bg: #f3f4f6;
 }
 
 /* --- 2. GLOBAL RESET & BASE --- */
-* { box-sizing: border-box; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body { 
     background-color: var(--bg-main); 
     color: var(--text-main); 
     font-family: var(--system-font); 
-    margin: 0; 
-    padding: 0;
     min-height: 100vh;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.3s ease;
     overflow-x: hidden;
+    line-height: 1.5;
 }
 
 .container { 
     width: 100%; 
-    max-width: 1100px; 
+    max-width: 1200px; 
     margin: 0 auto;
-    padding: 20px;
+    padding: 20px 40px;
     display: flex; 
     flex-direction: column; 
-    gap: 20px; 
+    gap: 30px; 
 }
 
-/* --- 3. IDENTITY GATEWAY (Login) --- */
+/* --- 3. IDENTITY GATEWAY (Login Interface) --- */
 .login-box {
-    max-width: 450px;
-    margin: 10vh auto;
-    padding: 40px;
+    max-width: 480px;
+    margin: 12vh auto;
+    padding: 50px;
     background: var(--card-bg);
     border: 1px solid var(--gh-border);
-    border-radius: 24px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    border-radius: 16px;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.7);
+    text-align: center;
+}
+
+.login-logo {
+    font-size: 32px;
+    color: var(--electric-green);
+    margin-bottom: 10px;
+    filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.3));
 }
 
 .app-grid {
     display: grid; 
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px; 
-    margin: 25px 0;
+    gap: 15px; 
+    margin: 30px 0;
 }
 
 .app-box {
-    background: rgba(128,128,128,0.05);
+    background: rgba(255,255,255,0.02);
     border: 1px solid var(--gh-border);
-    padding: 12px; 
-    border-radius: 10px;
+    padding: 15px; 
+    border-radius: 8px;
     display: flex; 
     align-items: center; 
-    gap: 10px; 
+    gap: 12px; 
     font-size: 11px;
-    transition: 0.2s;
+    font-weight: 600;
+    transition: 0.3s;
 }
 
-.app-box i { color: var(--electric-green); }
+.app-box i { color: var(--electric-green); font-size: 14px; }
 .app-box:hover { 
     border-color: var(--electric-green); 
-    background: rgba(46, 204, 113, 0.05); 
+    background: rgba(0, 255, 65, 0.05); 
+    transform: translateY(-2px);
 }
 
-/* --- 4. BUTTONS & AUTH --- */
-.auth-buttons { display: flex; flex-direction: column; gap: 12px; }
-
+/* --- 4. ACTION INTERFACES --- */
 .btn-auth {
-    padding: 16px; 
-    border-radius: 12px; 
+    padding: 14px 24px; 
+    border-radius: 8px; 
     text-decoration: none;
-    font-weight: 700; 
+    font-weight: 800; 
     display: flex; 
     align-items: center; 
     justify-content: center;
     gap: 12px; 
-    transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.gh-btn { background: #24292e; color: white; border: 1px solid #444; }
-.gh-btn:hover { background: #333; transform: translateY(-3px); }
+.gh-btn { background: #238636; color: white; border: 1px solid rgba(255,255,255,0.1); }
+.gh-btn:hover { background: #2ea043; box-shadow: 0 0 20px rgba(46, 160, 67, 0.4); }
 
-.guest-btn { background: var(--pure-white); color: #000; border: 1px solid var(--gh-border); }
-.guest-btn:hover { background: #f9f9f9; transform: translateY(-3px); }
+.guest-btn { background: transparent; color: var(--text-muted); border: 1px solid var(--gh-border); }
+.guest-btn:hover { color: var(--text-main); border-color: var(--text-main); }
 
 .btn-transmit {
     background: var(--electric-green); 
     color: #000; 
     border: none;
-    padding: 14px 24px; 
-    border-radius: 10px; 
-    font-weight: 800;
+    padding: 12px 28px; 
+    border-radius: 6px; 
+    font-weight: 900;
     cursor: pointer; 
     text-transform: uppercase; 
-    transition: 0.3s;
-    font-family: var(--system-font);
+    font-family: var(--code-font);
+    font-size: 12px;
 }
 
-.btn-transmit:hover {
-    box-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
-    filter: brightness(1.1);
-}
-
-/* --- 5. REPOSITORY & ASSETS --- */
+/* --- 5. REPOSITORY ARCHITECTURE --- */
 .file-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
 }
 
 .file-row {
     background: var(--card-bg); 
     border: 1px solid var(--gh-border);
-    padding: 18px; 
-    border-radius: 16px; 
+    padding: 20px; 
+    border-radius: 8px; 
     display: flex; 
     justify-content: space-between; 
     align-items: center;
-    transition: 0.3s;
+    transition: 0.25s ease;
 }
 
 .file-row:hover { 
-    border-color: var(--electric-green); 
-    background: rgba(255,255,255,0.02);
+    border-color: #8b949e; 
+    background: #1c2128;
 }
 
+.file-info { display: flex; align-items: center; gap: 15px; }
+.file-icon { color: var(--electric-green); font-size: 20px; }
+.file-name { font-weight: 700; font-size: 14px; color: #58a6ff; cursor: pointer; }
+.file-name:hover { text-decoration: underline; }
+
+/* Recovered/Reconstituted State */
 .file-row.recovered {
     border-color: var(--gold);
-    background: linear-gradient(90deg, var(--card-bg), rgba(255, 215, 0, 0.05));
+    background: linear-gradient(135deg, var(--card-bg), rgba(255, 215, 0, 0.03));
+    box-shadow: inset 0 0 15px rgba(255, 215, 0, 0.05);
 }
 
-/* --- 6. COMPONENTS & MODALS --- */
-.modal-overlay {
-    position: fixed; 
-    top:0; left:0; width:100%; height:100%; 
-    background: rgba(0,0,0,0.85); 
-    z-index: 9000; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    backdrop-filter: blur(5px);
-}
-
-.modal-box {
-    background: var(--card-bg); 
-    border: 1px solid var(--gold); 
-    padding: 40px; 
-    border-radius: 24px; 
-    text-align: center; 
-    max-width: 400px;
-    animation: scaleUp 0.3s ease-out;
-}
-
-.key-container {
-    background: var(--terminal-bg); 
-    padding: 15px; 
-    border-radius: 10px; 
-    border: 1px dashed var(--gold); 
-    cursor: pointer; 
-    margin: 20px 0;
-}
-
-#claim-key-display {
-    font-family: var(--code-font); 
-    font-size: 20px; 
-    color: var(--gold); 
-    letter-spacing: 2px;
-}
-
-/* --- 7. UTILITIES & ANIMATIONS --- */
-.disabled { opacity: 0.2; pointer-events: none; filter: grayscale(1); }
-
-.legal-scroll-box {
-    height: 110px; 
-    overflow-y: auto;
-    background: rgba(0,0,0,0.2); 
-    border-radius: 12px; 
-    padding: 15px;
+/* --- 6. MINIBOX & TERMINAL UI --- */
+.mini-input {
+    width: 100%;
+    background: var(--terminal-bg);
     border: 1px solid var(--gh-border);
+    color: var(--electric-green);
+    padding: 8px 12px;
     font-family: var(--code-font);
-    font-size: 10px;
+    font-size: 11px;
+    border-radius: 4px;
+    outline: none;
 }
 
-.badge-admin { 
-    background: var(--gold); color: #000; 
-    padding: 2px 6px; border-radius: 4px; 
-    font-size: 9px; font-weight: 900; 
+.mini-input:focus { border-color: var(--electric-green); }
+
+.mini-terminal-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin: 10px 0;
+    padding-right: 5px;
 }
 
-@keyframes scaleUp {
-    from { transform: scale(0.9); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+/* --- 7. NOTIFICATION SYSTEM --- */
+#notif-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--danger-red);
+    border-radius: 50%;
+    border: 2px solid var(--bg-main);
+    display: none; /* Controlled by core.js */
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; }
+/* --- 8. UTILITIES & ANIMATIONS --- */
+.blink { animation: blinker 1.5s step-start infinite; }
+@keyframes blinker { 50% { opacity: 0; } }
+
+.loading-shimmer {
+    background: linear-gradient(90deg, #161b22 25%, #21262d 50%, #161b22 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    to { background-position: -200% 0; }
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg-main); }
-::-webkit-scrollbar-thumb { background: var(--gh-border); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: var(--electric-green); }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }

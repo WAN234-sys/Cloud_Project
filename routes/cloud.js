@@ -1,152 +1,106 @@
-/** SCE v1.0.1 [BETA] - CLOUD ENGINE & DUAL-SYNC PROTOCOL **/
+/** SCE v1.0.1 [BETA] - CLOUD STORAGE ENGINE **/
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
+const multer = require('multer');
 
-// Initialize Supabase Storage
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// Configure Multer for memory storage (for buffer uploads)
 const upload = multer({ storage: multer.memoryStorage() });
 
-/**
- * --- 1. ASSET TRANSMISSION ---
- * Logic: Dual-sync to 'modules' (Live Repository) AND 'backup' (SECURED Warranty Vault)
- */
-router.post('/upload', upload.single('cfile'), async (req, res) => {
-    // 1. SECURITY HANDSHAKE
-    if (!req.isAuthenticated()) return res.status(401).send("Unauthorized");
-    if (req.user.isGuest) return res.status(403).send("Guest explorers restricted from transmission.");
-
-    const file = req.file;
-    if (!file) return res.status(400).send("No asset provided.");
-    
-    // Safety check for file extension
-    if (!file.originalname.endsWith('.c')) {
-        return res.status(400).send("Protocol Error: .c Source Required.");
-    }
-
-    const timestamp = Date.now();
-    const fileName = `${timestamp}_${req.user.username}_${file.originalname}`;
-    const warrantyName = `archives/warranty_${req.user.username}_${file.originalname}`;
-
-    try {
-        console.log(`[CLOUD SYNC] Initiating Dual-Sync for: ${file.originalname}`);
-
-        // PHASE A: Primary Cloud Sync (Visible Repository)
-        const { error: primaryErr } = await supabase.storage
-            .from('modules')
-            .upload(`uploads/${fileName}`, file.buffer, {
-                contentType: 'text/plain',
-                upsert: true
-            });
-
-        if (primaryErr) throw primaryErr;
-
-        // PHASE B: SECURED Warranty Vault Sync (Hidden Backup)
-        // This copy is immutable and only accessible via Admin Bridge for restores.
-        const { error: backupErr } = await supabase.storage
-            .from('backup')
-            .upload(warrantyName, file.buffer, {
-                contentType: 'text/plain',
-                upsert: true
-            });
-
-        if (backupErr) {
-            console.warn(`[WARRANTY WARNING] Backup sync failed for ${file.originalname}:`, backupErr.message);
-        }
-
-        console.log(`[SUCCESS] ${fileName} synced to Repository & Vault.`);
-        res.status(200).send("Transmission Complete");
-
-    } catch (err) {
-        console.error("[CLOUD CRITICAL]", err.message);
-        res.status(500).send("Cloud Sync Failed");
-    }
-});
+// Initialize Supabase
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 /**
- * --- 2. REPOSITORY FETCH ---
- * Logic: Lists assets from the 'modules' bucket and 'restored' folders.
+ * --- 1. FETCH ARCHIVE ---
+ * Purpose: Retrieves files and tags them for the 'Your Archive' vs 'Community' UI.
  */
 router.get('/files', async (req, res) => {
     try {
-        // Fetch primary uploads
-        const { data: uploads, error: upErr } = await supabase.storage
-            .from('modules')
-            .list('uploads', { 
-                limit: 100, 
-                sortBy: { column: 'created_at', order: 'desc' } 
-            });
+        // Fetch from the production 'modules' bucket
+        const { data, error } = await supabase.storage.from('modules').list('', {
+            limit: 100,
+            offset: 0,
+            sortBy: { column: 'created_at', order: 'desc' }
+        });
 
-        if (upErr) throw upErr;
+        if (error) throw error;
 
-        // Fetch restored assets specifically for this user (if authenticated)
-        let restoredFiles = [];
-        if (req.isAuthenticated() && !req.user.isGuest) {
-            const { data: rData } = await supabase.storage
-                .from('modules')
-                .list(`restored/${req.user.username}`, { limit: 20 });
-            if (rData) restoredFiles = rData.map(f => ({ ...f, isRestoredFolder: true }));
-        }
-
-        const allFiles = [...restoredFiles, ...uploads];
-
-        const formattedFiles = allFiles.map(f => {
-            const isRecovered = f.isRestoredFolder || f.name.startsWith('RESTORED_');
+        // Map files with owner metadata (stored in file names or metadata)
+        const formattedFiles = data.map(file => {
+            const isRecovered = file.name.includes('restored_');
+            const owner = file.metadata?.owner || "System"; 
             
-            // Parsing logic based on pathing
-            const parts = f.name.split('_');
-            const owner = f.isRestoredFolder ? req.user.username : (parts[1] || "System");
-            const displayName = f.isRestoredFolder ? f.name.split('_').slice(1).join('_') : parts.slice(2).join('_');
-            
-            const filePath = f.isRestoredFolder ? 
-                `restored/${req.user.username}/${f.name}` : 
-                `uploads/${f.name}`;
-
             return {
-                name: f.name,
-                displayName: displayName || f.name,
+                name: file.name,
+                displayName: file.name.split('_').pop(), // Clean name for SC EXPLORER UI
+                sizeBytes: file.metadata?.size || 0,
                 owner: owner,
-                sizeBytes: f.metadata?.size || 0,
                 isRecovered: isRecovered,
-                url: supabase.storage.from('modules').getPublicUrl(filePath).data.publicUrl,
-                canManage: req.user && (req.user.username === owner || req.user.isAdmin),
-                isBackedUp: true 
+                url: supabase.storage.from('modules').getPublicUrl(file.name).data.publicUrl,
+                canManage: req.isAuthenticated() && (req.user.username === owner || req.user.isAdmin)
             };
         });
 
         res.json(formattedFiles);
     } catch (err) {
-        console.error("[FETCH CRITICAL]", err);
-        res.status(500).json({ error: "Sync failed" });
+        console.error("[CLOUD] Sync Error:", err.message);
+        res.status(500).json({ error: "FAILED_TO_SYNC_ARCHIVE" });
+    }
+});
+
+/**
+ * --- 2. FILE UPLOAD (FIXED) ---
+ * Purpose: Handles Drag & Drop from client.js. Blocked for Guests.
+ */
+router.post('/upload', upload.single('file'), async (req, res) => {
+    // GUEST LOCKDOWN: Server-side enforcement
+    if (!req.isAuthenticated() || req.user.isGuest) {
+        return res.status(403).json({ error: "GUEST_UPLOAD_RESTRICTED" });
+    }
+
+    if (!req.file) return res.status(400).json({ error: "NO_FILE_DETECTED" });
+
+    const file = req.file;
+    const fileName = `${req.user.username}_${Date.now()}_${file.originalname}`;
+
+    try {
+        const { data, error } = await supabase.storage
+            .from('modules')
+            .upload(fileName, file.buffer, {
+                contentType: file.mimetype,
+                upsert: true,
+                duplex: 'half'
+            });
+
+        if (error) throw error;
+
+        console.log(`[CLOUD] Asset Uploaded: ${fileName} by ${req.user.username}`);
+        res.status(200).json({ success: true, fileName: fileName });
+    } catch (err) {
+        console.error("[CLOUD] Upload Failure:", err.message);
+        res.status(500).json({ error: "UPLOAD_HANDSHAKE_FAILED" });
     }
 });
 
 /**
  * --- 3. ASSET DELETION ---
  */
-router.delete('/files/:name', async (req, res) => {
-    if (!req.isAuthenticated() || req.user.isGuest) return res.status(403).send("Forbidden");
+router.delete('/delete/:name', async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const fileName = req.params.name;
+    
+    // Only owner or admin can delete
+    if (!fileName.startsWith(req.user.username) && !req.user.isAdmin) {
+        return res.status(403).json({ error: "DELETION_UNAUTHORIZED" });
+    }
 
     try {
-        const fileName = req.params.name;
-        
-        // Determine owner from filename (format: timestamp_owner_name.c)
-        const parts = fileName.split('_');
-        const owner = parts[1];
-
-        if (req.user.username !== owner && !req.user.isAdmin) {
-            return res.status(403).send("Clearance Denied: Ownership Mismatch.");
-        }
-
-        const { error } = await supabase.storage
-            .from('modules')
-            .remove([`uploads/${fileName}`]);
-
+        const { error } = await supabase.storage.from('modules').remove([fileName]);
         if (error) throw error;
-        res.status(200).send("Asset Purged.");
+        res.json({ success: true });
     } catch (err) {
-        res.status(500).send("Deletion Failed.");
+        res.status(500).json({ error: "DELETE_FAILED" });
     }
 });
 

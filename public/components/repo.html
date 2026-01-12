@@ -1,8 +1,8 @@
 <div id="repo-component" class="repo-grid">
     
-    <section class="transmission-unit">
+    <section class="transmission-unit" id="transmission-gate">
         <div class="upload-box" id="drop-zone">
-            <label for="cfile" class="custom-file-box">
+            <label for="cfile" class="custom-file-box" id="file-label-gate">
                 <div class="icon-stack">
                     <i class="fas fa-cloud-upload-alt main-icon"></i>
                     <i class="fas fa-shield-alt shield-overlay"></i>
@@ -16,7 +16,7 @@
                 <div class="progress-bar">
                     <div id="progress-fill"></div>
                 </div>
-                <small id="upload-status">SYNCHRONIZING...</small>
+                <small id="upload-status" class="blink">SYNCHRONIZING_WITH_VAULT...</small>
             </div>
 
             <button id="uploadBtn" class="btn-transmit">
@@ -25,7 +25,8 @@
         </div>
     </section>
 
-    <section class="explorer-unit">
+    <section class="explorer-unit" id="repo-container">
+        
         <div class="asset-group">
             <h3 class="section-title">
                 <i class="fas fa-user-shield"></i> YOUR_SECURED_ASSETS
@@ -48,27 +49,31 @@
 </div>
 
 <style>
-/* Repository Architecture */
+/* Repository Architecture - SC EXPLORER Edition */
 .repo-grid {
     display: flex;
     flex-direction: column;
     gap: 30px;
     margin-top: 20px;
+    animation: fadeIn 0.5s ease-out;
 }
 
 /* Transmission Unit Styling */
 .transmission-unit {
-    background: var(--card-bg);
-    border: 1px dashed var(--gh-border);
+    background: var(--card-bg, #0d1117);
+    border: 1px dashed var(--gh-border, #30363d);
     border-radius: 12px;
     padding: 40px;
     text-align: center;
-    transition: 0.3s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
 
 .transmission-unit:hover {
     border-color: var(--electric-green);
-    background: rgba(46, 204, 113, 0.02);
+    background: rgba(0, 255, 65, 0.02);
+    box-shadow: 0 0 30px rgba(0, 255, 65, 0.05);
 }
 
 .icon-stack {
@@ -78,67 +83,89 @@
 }
 
 .main-icon {
-    font-size: 40px;
-    color: var(--electric-green);
+    font-size: 44px;
+    color: var(--electric-green, #00ff41);
+    filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.3));
 }
 
 .shield-overlay {
     position: absolute;
     bottom: -5px;
     right: -10px;
-    font-size: 18px;
-    color: var(--gold);
+    font-size: 20px;
+    color: var(--gold, #ffd700);
     background: var(--card-bg);
     border-radius: 50%;
-    padding: 2px;
+    padding: 3px;
+    border: 2px solid var(--card-bg);
 }
 
 .status-text {
     display: block;
-    font-weight: bold;
-    font-size: 14px;
-    letter-spacing: 1px;
+    font-weight: 800;
+    font-size: 15px;
+    letter-spacing: 1.5px;
+    font-family: 'Space Grotesk', sans-serif;
 }
 
 .sub-text {
     font-size: 10px;
     color: var(--text-muted);
     text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-/* File Container & Shimmer */
-.file-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-    min-height: 50px;
+/* Asset Sectioning */
+.asset-group {
+    margin-bottom: 40px;
 }
 
 .section-title {
-    font-size: 12px;
-    letter-spacing: 2px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
     color: var(--text-muted);
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
+    text-transform: uppercase;
 }
 
 .count-badge {
-    background: #333;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 9px;
-    color: #fff;
+    background: #161b22;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    color: var(--electric-green);
+    border: 1px solid #30363d;
 }
 
-/* Progress Bar */
+/* File Grid Display */
+.file-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    min-height: 100px;
+}
+
+/* Shimmer Loading State */
+.loading-shimmer {
+    font-family: 'Fira Code', monospace;
+    font-size: 11px;
+    color: #444;
+    padding: 20px;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+/* Progress Mechanism */
 .progress-bar {
     width: 100%;
-    height: 4px;
-    background: #111;
-    border-radius: 2px;
-    margin: 15px 0;
+    height: 3px;
+    background: #161b22;
+    border-radius: 5px;
+    margin: 20px 0;
     overflow: hidden;
 }
 
@@ -146,18 +173,21 @@
     width: 0%;
     height: 100%;
     background: var(--electric-green);
-    box-shadow: 0 0 10px var(--electric-green);
-    transition: width 0.3s;
+    box-shadow: 0 0 15px var(--electric-green);
+    transition: width 0.4s ease;
 }
 
-/* Asset Cards */
-.asset-card {
-    background: #0d1117;
-    border: 1px solid var(--gh-border);
-    border-radius: 8px;
-    padding: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+.blink { animation: blinker 1.5s linear infinite; }
+
+@keyframes blinker {
+    50% { opacity: 0.3; }
+}
+
+/* Guest Restriction Overlay Hook */
+.guest-lock {
+    filter: blur(8px) grayscale(1);
+    pointer-events: none;
+    user-select: none;
+    opacity: 0.5;
 }
 </style>

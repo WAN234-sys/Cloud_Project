@@ -6,27 +6,33 @@ let titleClicks = 0;
 
 /**
  * --- 1. BOOT SEQUENCE ---
- * Primary entry point. Handles session sync and UI state transitions.
- * Executes after DOM is ready and client.js modules are mounted.
+ * FIXED: Updated fetch path to '/api/auth/status' to match synchronized auth.js.
  */
 async function init() {
-    console.log("%c[CORE] Initiating v1.0.1 BETA Handshake...", "color: #3498db; font-weight: bold;");
-    setupTitleSecret(); 
-
+    console.log("%c[CORE] Initiating SC EXPLORER v1.0.1 Handshake...", "color: #3498db; font-weight: bold;");
+    
     try {
-        const res = await fetch('/api/auth/user');
+        // Match the endpoint in routes/auth.js
+        const res = await fetch('/api/auth/status');
         currentUser = await res.json();
         
-        // Sync Global State for other scripts (NoA.js, client.js)
+        // Sync Global State for other scripts (NoA.js, client.js, terminal.js)
         window.currentUser = currentUser;
 
-        if (currentUser.authenticated) {
+        if (currentUser.authenticated && !currentUser.isGuest) {
             handleAuthenticatedState();
+        } else if (currentUser.isGuest) {
+            handleGuestState();
         } else {
             handleAnonymousState();
         }
+
+        applyBranding();
+        setupTitleSecret(); 
+
     } catch (err) {
         console.error("[CORE CRITICAL] Handshake Protocol Failed:", err);
+        handleAnonymousState();
     }
 }
 
@@ -34,68 +40,98 @@ async function init() {
  * --- 2. AUTHENTICATED STATE LOGIC ---
  */
 function handleAuthenticatedState() {
-    // UI State Transition
     const authSection = document.getElementById('auth-section');
     const mainUI = document.getElementById('main-ui');
     
     if (authSection) authSection.style.display = 'none';
-    if (mainUI) mainUI.style.display = 'block';
+    if (mainUI) {
+        mainUI.style.display = 'block';
+        mainUI.style.filter = 'none';
+        mainUI.style.pointerEvents = 'auto';
+    }
     
-    // Activate Minibox Interface
+    // Activate UI features
     const trigger = document.getElementById('minibox-trigger');
     if (trigger) trigger.style.display = 'flex';
 
     renderProfile();
     
-    // Initialize Repository Data
+    // Trigger file sync
     if (window.fetchFiles) window.fetchFiles();
 
-    // Check for pending items immediately on login
     syncSystemNotifications();
 
-    // Start Recovery Monitoring (Bypassed for Guests & Admins)
-    if (!currentUser.isAdmin && !currentUser.isGuest) {
+    // Start Recovery Monitoring (Exclude Admins from polling own requests)
+    if (!currentUser.isAdmin) {
         startRecoveryPolling();
     }
 }
 
 /**
- * --- 3. NOTIFICATION & RECOVERY SYNC ---
+ * --- 3. GUEST & ANONYMOUS LOCKDOWN ---
+ * Implements the "guest cant interact anything" requirement.
+ */
+function handleGuestState() {
+    console.log("[CORE] Guest Access: Restricted Mode Active.");
+    renderProfile();
+    
+    const mainUI = document.getElementById('main-ui');
+    if (mainUI) {
+        mainUI.style.filter = 'blur(10px) grayscale(1)';
+        mainUI.style.pointerEvents = 'none'; // Disable all clicks
+    }
+
+    // Show specialized login prompt if overlay exists
+    const blocker = document.getElementById('guest-blocker');
+    if (blocker) blocker.style.display = 'flex';
+}
+
+/**
+ * --- 4. BRANDING SYNC ---
+ */
+function applyBranding() {
+    // Update Master Title
+    const title = document.getElementById('app-title') || document.querySelector('.main-header h1');
+    if (title) {
+        title.innerText = "SC EXPLORER";
+        title.style.fontSize = "3.5rem"; // Large as requested
+        title.style.letterSpacing = "10px";
+    }
+
+    // Update Archive Label
+    const archiveLabel = document.getElementById('archive-title');
+    if (archiveLabel) archiveLabel.innerText = "Your Archive";
+}
+
+/**
+ * --- 5. NOTIFICATION & RECOVERY POLLING ---
  */
 function syncSystemNotifications() {
     if (currentUser.newRestoreAvailable) {
-        // Red Dot logic for Nav
         const dot = document.getElementById('notif-dot');
         if (dot) dot.style.display = 'block';
         
-        // Verification Minibox visibility
         const vBox = document.getElementById('verify-box');
-        if (vBox && !currentUser.isAdmin) {
-            vBox.style.display = 'block';
-        }
+        if (vBox && !currentUser.isAdmin) vBox.style.display = 'block';
         
         if (window.playNotificationSound) window.playNotificationSound();
     }
 }
 
-/**
- * --- 4. RECOVERY POLLING ---
- * Background loop that checks for Admin approvals every 15 seconds.
- */
 function startRecoveryPolling() {
     if (recoveryCheckInterval) clearInterval(recoveryCheckInterval);
 
     recoveryCheckInterval = setInterval(async () => {
         try {
-            const res = await fetch('/api/auth/user');
+            const res = await fetch('/api/auth/status');
             const data = await res.json();
-            window.currentUser = data; // Update global reference
+            window.currentUser = data;
 
             if (data.newRestoreAvailable) {
                 const dot = document.getElementById('notif-dot');
                 if (dot) dot.style.display = 'block';
                 
-                // Fetch specific recovery details (Key & Path)
+                // Fetch specific recovery details
                 const recRes = await fetch('/api/user/check-recovery');
                 const recData = await recRes.json();
 
@@ -110,9 +146,6 @@ function startRecoveryPolling() {
 }
 
 function triggerClaimUI(key) {
-    const vBox = document.getElementById('verify-box');
-    if (vBox) vBox.style.display = 'block';
-
     const popup = document.getElementById('claim-popup');
     if (popup && popup.style.display !== 'flex') {
         const display = document.getElementById('claim-key-display');
@@ -123,19 +156,19 @@ function triggerClaimUI(key) {
 }
 
 /**
- * --- 5. UI RENDERERS ---
+ * --- 6. UI RENDERERS ---
  */
 function renderProfile() {
     const anchor = document.getElementById('profile-anchor');
     if (!anchor) return;
 
-    const logoutLabel = currentUser.isGuest ? "BACK TO LOGIN" : "DISCONNECT";
+    const logoutLabel = currentUser.isGuest ? "TERMINATE GUEST" : "LOGOUT";
     const userColor = currentUser.isAdmin ? 'var(--gold)' : 'var(--electric-green)';
     const avatarUrl = currentUser.avatar || "https://github.com/identicons/user.png";
 
     anchor.innerHTML = `
         <div class="profile-card">
-            <img src="${avatarUrl}" class="nav-avatar" style="border-color: ${userColor}">
+            <img src="${avatarUrl}" class="nav-avatar" style="border: 2px solid ${userColor}">
             <div class="profile-info">
                 <span class="nav-username" style="color:${userColor}">
                     ${currentUser.username} 
@@ -147,13 +180,11 @@ function renderProfile() {
 }
 
 function handleAnonymousState() {
-    if (window.setupTOSListener) window.setupTOSListener();
-    console.log("[CORE] Standing by at Gateway.");
+    console.log("[CORE] Standing by at Gateway. Login required.");
+    const mainUI = document.getElementById('main-ui');
+    if (mainUI) mainUI.style.display = 'none';
 }
 
-/**
- * --- 6. SYSTEM SECRETS ---
- */
 function setupTitleSecret() {
     const title = document.getElementById('app-title');
     if (!title) return;
@@ -161,12 +192,11 @@ function setupTitleSecret() {
     title.onclick = () => {
         titleClicks++;
         if (titleClicks === 5) {
-            console.log("%c[DEV] High-Clearance Mode Confirmed.", "color: #f1c40f");
-            title.style.textShadow = "0 0 10px var(--gold)";
+            title.style.textShadow = "0 0 20px var(--gold)";
+            title.style.color = "var(--gold)";
             titleClicks = 0; 
         }
     };
 }
 
-// Kickoff Boot Sequence
 init();

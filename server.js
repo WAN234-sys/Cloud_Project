@@ -1,128 +1,139 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const axios = require('axios');
+const passport = require('passport'); // REQUIRED by admin.txt
+const GitHubStrategy = require('passport-github2').Strategy;
 const { createClient } = require('@supabase/supabase-js');
 
+// 1. SETUP MALAYSIA-VAULT CONNECTION
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // This matches your Render Key
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 console.log("SCE_HANDSHAKE: Vault connection established.");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 1. DATABASE INITIALIZATION
-// FIXED: Changed process.env.SUPABASE_KEY to supabaseKey to match your declaration above
-const supabase = createClient(supabaseUrl, supabaseKey);
+// 2. GLOBAL MEMORY (Required by terminal.txt)
+global.recoveryData = new Map();
+global.adminTickets = []; 
 
-// 2. GLOBAL MEMORY (Recovery Tickets)
-global.recoveryData = new Map(); 
+// 3. PASSPORT SECURITY CONFIGURATION
+// This creates the 'req.user' object that vault.txt looks for
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-// 3. CORE MIDDLEWARE STACK (ORDER IS VITAL)
-app.use(express.json()); // 1st: Parse JSON
-app.use(express.urlencoded({ extended: true })); // 2nd: Parse Form Data
-app.use(session({        // 3rd: Establish Session
+passport.use(new GitHubStrategy({
+    clientID: process.env.GITHUB_ID,
+    clientSecret: process.env.GITHUB_SECRET,
+    // CRITICAL: Must match your Render URL exactly
+    callbackURL: "https://YOUR-APP-NAME.onrender.com/auth/github/callback" 
+  },
+  function(accessToken, refreshToken, profile, done) {
+    // Map GitHub Profile to SCE User Identity
+    const user = {
+        id: profile.id,
+        username: profile.username,
+        avatar: profile._json.avatar_url,
+        // Checks if you are the Admin (WAN234)
+        isAdmin: profile.username === process.env.ADMIN_USERNAME 
+    };
+    return done(null, user);
+  }
+));
+
+// 4. MIDDLEWARE STACK
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(session({
     secret: process.env.SESSION_SECRET || 'sce-vault-link-000',
     resave: false,
     saveUninitialized: false,
     cookie: { 
-        secure: false, // Set to true if using HTTPS
-        maxAge: 24 * 60 * 60 * 1000 
+        secure: false, // Set 'true' if on HTTPS (Render)
+        maxAge: 24 * 60 * 60 * 1000 // 24 Hours
     }
 }));
 
-// 4. ROUTE MOUNTING (Must come AFTER Session/JSON middleware)
-const adminRoutes = require('./routes/admin');
-const vaultRoutes = require('./routes/vault');
-app.use('/api/admin', adminRoutes);
-app.use('/api/vault', vaultRoutes);
+// INITIALIZE PASSPORT (Fixes the admin.txt crash)
+app.use(passport.initialize());
+app.use(passport.session());
 
+// 5. ROUTE MOUNTING
 app.use(express.static('public'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/vault', require('./routes/vault')); // Links to vault.txt
 
 /**
- * 5. IDENTITY HANDSHAKE (GitHub OAuth)
+ * 6. AUTHENTICATION ROUTES (Passport Implementation)
  */
+// Trigger GitHub Login
+app.get('/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
 
-app.get('/auth/github', (req, res) => {
-    const url = `https://github.com/login/oauth/authorize?client_id=${process.env.GITHUB_ID}&scope=user:email`;
-    res.redirect(url);
-});
+// Handle Return from GitHub
+app.get('/auth/github/callback', 
+    passport.authenticate('github', { failureRedirect: '/?auth=failed' }),
+    (req, res) => {
+        console.log(`[AUTH] Access Granted: ${req.user.username}`);
+        res.redirect('/'); // Redirects to Dashboard
+    }
+);
 
-app.get('/auth/github/callback', async (req, res) => {
-    const { code } = req.query;
-    try {
-        const tokenRes = await axios.post('https://github.com/login/oauth/access_token', {
-            client_id: process.env.GITHUB_ID,
-            client_secret: process.env.GITHUB_SECRET,
-            code
-        }, { headers: { Accept: 'application/json' } });
-
-        const userRes = await axios.get('https://api.github.com/user', {
-            headers: { Authorization: `token ${tokenRes.data.access_token}` }
+// Identity Status Check (Used by user.txt line 529)
+app.get('/api/auth/status', (req, res) => {
+    if (req.isAuthenticated()) {
+        // Check if this user has a pending recovery key
+        const hasKey = Array.from(global.recoveryData.values())
+                            .some(v => v.username === req.user.username);
+        res.json({
+            authenticated: true,
+            username: req.user.username,
+            avatar: req.user.avatar,
+            isAdmin: req.user.isAdmin,
+            recoveryReady: hasKey
         });
-
-        // Map session data securely
-        req.session.user = {
-            id: userRes.data.id,
-            username: userRes.data.login,
-            avatar: userRes.data.avatar_url,
-            isAdmin: userRes.data.login === 'WAN234' 
-        };
-        
-        req.session.save(() => { // Force save before redirect
-            res.redirect('/');
-        });
-    } catch (err) {
-        console.error("[AUTH_ERROR]", err.message);
-        res.redirect('/?auth=failed');
+    } else {
+        res.json({ authenticated: false });
     }
 });
 
+app.get('/api/auth/logout', (req, res) => {
+    req.logout(() => {
+        res.redirect('/');
+    });
+});
+
 /**
- * 6. RECOVERY PROTOCOL (The 6-6-6-6 Logic)
+ * 7. RECOVERY PROTOCOL (For verify.txt)
  */
 app.post('/api/user/verify-key', async (req, res) => {
     const { key } = req.body;
-    if (!req.session.user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
+    if (!req.user) return res.status(401).json({ error: 'AUTH_REQUIRED' });
 
     const recovery = global.recoveryData.get(key);
 
-    if (recovery && recovery.username === req.session.user.username) {
+    if (recovery && recovery.username === req.user.username) {
         try {
-            const { data, error } = await supabase
-                .from('vault_assets')
+            // Update Database
+            const { error } = await supabase
+                .from('assets') 
                 .update({ status: 'reconstituted', visibility: 'public' })
-                .match({ filename: recovery.filename, owner: recovery.username });
+                .match({ name: recovery.filename, owner_username: recovery.username });
 
             if (error) throw error;
 
-            global.recoveryData.delete(key); 
-            res.json({ success: true });
+            // Clear Memory
+            global.recoveryData.delete(key);
+            global.adminTickets = global.adminTickets.filter(t => t.username !== req.user.username);
+            
+            res.json({ success: true, message: "ASSET_RESTORED" });
         } catch (err) {
+            console.error(err);
             res.status(500).json({ error: 'VAULT_SYNC_ERROR' });
         }
     } else {
         res.status(401).json({ error: 'INVALID_CLAIM_KEY' });
     }
-});
-
-/**
- * 7. SESSION & SYSTEM DIAGNOSTIC
- */
-app.get('/api/session', (req, res) => {
-    if (!req.session.user) {
-        return res.json({ isGuest: true, user: { username: 'GUEST', avatar: '/default-pfp.png' } });
-    }
-    
-    // Check for pending keys
-    const hasKey = Array.from(global.recoveryData.values())
-                        .some(v => v.username === req.session.user.username);
-    
-    res.json({ 
-        isGuest: false, 
-        user: req.session.user,
-        recoveryReady: hasKey 
-    });
 });
 
 app.listen(PORT, () => console.log(`[SCE_SYSTEM] Bridge Active on Port ${PORT}`));

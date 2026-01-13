@@ -5,14 +5,15 @@ const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY; // This matches your Render Key
 
 console.log("SCE_HANDSHAKE: Vault connection established.");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // 1. DATABASE INITIALIZATION
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+// FIXED: Changed process.env.SUPABASE_KEY to supabaseKey to match your declaration above
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // 2. GLOBAL MEMORY (Recovery Tickets)
 global.recoveryData = new Map(); 
@@ -31,7 +32,6 @@ app.use(session({        // 3rd: Establish Session
 }));
 
 // 4. ROUTE MOUNTING (Must come AFTER Session/JSON middleware)
-// Assuming these files exist in your /routes folder
 const adminRoutes = require('./routes/admin');
 const vaultRoutes = require('./routes/vault');
 app.use('/api/admin', adminRoutes);

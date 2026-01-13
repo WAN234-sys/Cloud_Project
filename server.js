@@ -4,6 +4,12 @@ const session = require('express-session');
 const axios = require('axios');
 const { createClient } = require('@supabase/supabase-js');
 
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+console.log("SCE_HANDSHAKE: Vault connection established.");
 const app = express();
 const PORT = process.env.PORT || 3000;
 

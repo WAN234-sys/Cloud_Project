@@ -191,7 +191,7 @@ export async function runCommand(rawInput) {
         // each visitor's key stays in their own browser only.
         try {
           const response = await fetch(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
             {
               method: 'POST',
               headers: {

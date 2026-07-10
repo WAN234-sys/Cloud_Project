@@ -72,6 +72,23 @@ credit card, no cost. *How* the key is handled differs by build:
 2. In the app: `mirai key AIza...`
 3. Then just: `mirai what's the difference between a /24 and /25?`
 
+**Heads up — Google reshuffles which models are free fairly often** (this
+project has already hit one deprecation: `gemini-2.5-flash` moved to
+paid-only for new API keys shortly after this was built). When MiRAi
+starts returning "no longer available to new users" or a 404-style
+model error, that's what happened — it's not a bug in the app. Fix:
+
+1. Check [aistudio.google.com](https://aistudio.google.com) or the
+   [Gemini models page](https://ai.google.dev/gemini-api/docs/models)
+   for which model is currently marked free
+2. Update the model name in exactly two places:
+   - `electron/main.js` — the `modelName` default (search for `gemini-2.5-flash-lite`)
+   - `src/lib/commands.js` — the fetch URL in the web/mobile branch (same search term)
+3. Rebuild (`npm run build`) and re-deploy
+
+Currently set to `gemini-2.5-flash-lite`, confirmed free-tier as of
+this writing — but treat that as a snapshot, not a guarantee.
+
 **Worth knowing about the free tier, so nothing surprises you:**
 - Free-tier requests may be used by Google to improve their products
   (stated on their pricing page) — fine for a personal tool, worth

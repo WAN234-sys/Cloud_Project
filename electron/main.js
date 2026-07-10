@@ -139,7 +139,7 @@ ipcMain.handle('mirai:ask', async (_event, { messages, model }) => {
     return { ok: false, error: 'No API key set. Run: mirai key <your-api-key>' };
   }
 
-  const modelName = model || 'gemini-2.5-flash';
+  const modelName = model || 'gemini-2.5-flash-lite';
 
   try {
     const res = await fetch(

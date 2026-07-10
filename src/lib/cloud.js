@@ -32,19 +32,64 @@ export async function signOut() {
   await supabase.auth.signOut();
 }
 
-/** Saves one record (a subnet calc, scan result, etc.) tied to the signed-in user. */
+/** Creates a new team and returns its short invite code. */
+export async function createTeam() {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not signed in. Run: cloud login <email>');
+
+  const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const { data: team, error } = await supabase
+    .from('teams')
+    .insert({ invite_code: inviteCode, created_by: user.id })
+    .select()
+    .single();
+  if (error) throw error;
+
+  await supabase.from('team_members').insert({ team_id: team.id, user_id: user.id });
+  return inviteCode;
+}
+
+/** Joins an existing team by its invite code. */
+export async function joinTeam(inviteCode) {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not signed in. Run: cloud login <email>');
+
+  const { data: team, error: findError } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('invite_code', inviteCode.toUpperCase())
+    .single();
+  if (findError || !team) throw new Error('No team found with that invite code.');
+
+  const { error } = await supabase.from('team_members').insert({ team_id: team.id, user_id: user.id });
+  if (error && !error.message.includes('duplicate')) throw error;
+  return team.id;
+}
+
+/** Returns the current user's team id, or null if they're not on one. */
+async function getMyTeamId() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const { data } = await supabase.from('team_members').select('team_id').eq('user_id', user.id).limit(1).maybeSingle();
+  return data?.team_id ?? null;
+}
+
+/** Saves one record. If the user has joined a team, it's shared with the team; otherwise it's private to them. */
 export async function saveSession(kind, payload) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
   const user = await getCurrentUser();
   if (!user) throw new Error('Not signed in. Run: cloud login <email>');
 
+  const teamId = await getMyTeamId();
   const { error } = await supabase
     .from('sessions')
-    .insert({ user_id: user.id, kind, payload });
+    .insert({ user_id: user.id, team_id: teamId, kind, payload });
   if (error) throw error;
 }
 
-/** Lists saved records for the signed-in user, most recent first. */
+/** Lists sessions visible to the signed-in user — their own, plus their team's if they've joined one. */
 export async function listSessions(kind) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
   const user = await getCurrentUser();
@@ -53,12 +98,11 @@ export async function listSessions(kind) {
   let query = supabase
     .from('sessions')
     .select('*')
-    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(30);
   if (kind) query = query.eq('kind', kind);
 
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return data; // RLS on the "sessions" table restricts this to own + team rows — see README setup
 }

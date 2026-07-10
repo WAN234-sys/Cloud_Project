@@ -15,41 +15,115 @@ npm run dev
 ## Setting up cloud storage (Supabase)
 
 Cloud sync uses [Supabase](https://supabase.com) — free tier, gives you
-auth + a database together, no backend server for you to run.
+auth + a database together, no backend server for you to run. This
+now supports **team workspaces**: create an invite code, share it with
+anyone anywhere (not just people on your network), and `cloud save`/
+`cloud history` show shared team data instead of just your own.
 
-1. Create a free project at supabase.com
-2. In the SQL editor, run this to create the sessions table with
-   row-level security (so users can only ever see their own data):
+**If you already have a `sessions` table set up** (from before team
+workspaces existed), run this migration in the SQL editor — it adds
+what's new without touching your existing data:
 
-   ```sql
-   create table sessions (
-     id uuid primary key default gen_random_uuid(),
-     user_id uuid references auth.users not null,
-     kind text not null,
-     payload jsonb not null,
-     created_at timestamptz default now()
-   );
+```sql
+-- New tables for team workspaces
+create table teams (
+  id uuid primary key default gen_random_uuid(),
+  invite_code text unique not null,
+  created_by uuid references auth.users not null,
+  created_at timestamptz default now()
+);
 
-   alter table sessions enable row level security;
+create table team_members (
+  team_id uuid references teams not null,
+  user_id uuid references auth.users not null,
+  primary key (team_id, user_id)
+);
 
-   create policy "Users can read their own sessions"
-     on sessions for select using (auth.uid() = user_id);
+alter table teams enable row level security;
+alter table team_members enable row level security;
 
-   create policy "Users can insert their own sessions"
-     on sessions for insert with check (auth.uid() = user_id);
-   ```
+create policy "Anyone can read teams" on teams for select using (true);
+create policy "Users can create teams" on teams for insert with check (auth.uid() = created_by);
+create policy "Users can see their own memberships" on team_members for select using (auth.uid() = user_id);
+create policy "Users can join teams" on team_members for insert with check (auth.uid() = user_id);
 
-3. In Project Settings > API, copy your Project URL and `anon` `public` key
-4. Copy `.env.example` to `.env` and fill both values in
-5. Restart `npm run dev`
+-- Add team_id to your existing sessions table
+alter table sessions add column team_id uuid references teams;
 
-Then in the app: `cloud login you@email.com` → click the magic link
-emailed to you → `cloud whoami` to confirm → `cloud save` after any
-subnet calculation → `cloud history` to see saved sessions.
+-- Replace the old "own data only" read policy with one that includes team data
+-- (if this errors with "policy does not exist", check Database > Policies in
+-- the Supabase dashboard for the exact name of your existing select policy
+-- on "sessions" and swap it into the line below)
+drop policy "Users can read their own sessions" on sessions;
+create policy "Users can read own or team sessions" on sessions
+  for select using (
+    auth.uid() = user_id
+    or team_id in (select team_id from team_members where user_id = auth.uid())
+  );
+```
+
+**If you're setting this up fresh** (no `sessions` table yet), run this instead:
+
+```sql
+create table teams (
+  id uuid primary key default gen_random_uuid(),
+  invite_code text unique not null,
+  created_by uuid references auth.users not null,
+  created_at timestamptz default now()
+);
+
+create table team_members (
+  team_id uuid references teams not null,
+  user_id uuid references auth.users not null,
+  primary key (team_id, user_id)
+);
+
+create table sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users not null,
+  team_id uuid references teams,
+  kind text not null,
+  payload jsonb not null,
+  created_at timestamptz default now()
+);
+
+alter table teams enable row level security;
+alter table team_members enable row level security;
+alter table sessions enable row level security;
+
+create policy "Anyone can read teams" on teams for select using (true);
+create policy "Users can create teams" on teams for insert with check (auth.uid() = created_by);
+create policy "Users can see their own memberships" on team_members for select using (auth.uid() = user_id);
+create policy "Users can join teams" on team_members for insert with check (auth.uid() = user_id);
+
+create policy "Users can read own or team sessions" on sessions
+  for select using (
+    auth.uid() = user_id
+    or team_id in (select team_id from team_members where user_id = auth.uid())
+  );
+create policy "Users can insert their own sessions" on sessions
+  for insert with check (auth.uid() = user_id);
+```
+
+Setup, either way:
+1. In Project Settings > API, copy your Project URL and `anon` `public` key
+2. Copy `.env.example` to `.env` and fill both values in
+3. Restart `npm run dev`
+
+Usage — this works across the internet, not just the same network:
+```
+cloud login you@email.com          → click the magic link emailed to you
+cloud whoami                        → confirm you're signed in
+cloud team create                   → get an invite code, e.g. "K3PQZ1"
+cloud team join K3PQZ1              → (on any other device, anywhere) join that team
+cloud save                          → after a subnet calc — visible to the whole team now
+cloud history                       → shows your saved data + your team's, from any device
+```
 
 The `anon` key is safe to ship in your built app — it's meant to be
-public. What actually protects user data is the row-level security
-policy above, which is why that SQL step isn't optional.
+public. What actually protects data (private vs. shared-with-team) is
+the row-level security policy above, which is why that SQL step isn't
+optional.
 
 ## Setting up MiRAi (the AI assistant — free)
 

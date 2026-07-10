@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { runCommand } from '../lib/commands.js';
 
-const BANNER = `NetKit v0.1.0 — subnet calc / nmap / ping
+const BANNER = `Mnetto v0.1.1 — subnet calc / nmap / ping / MiRAi
 Type "help" to see available commands.`;
 
 export default function Terminal() {
@@ -87,7 +87,7 @@ export default function Terminal() {
           <span className="dot dot-amber" />
           <span className="dot dot-green" />
         </div>
-        <span className="titlebar-label">netkit — network toolkit</span>
+        <span className="titlebar-label">mnetto — network toolkit</span>
       </div>
 
       <div className="terminal-scroll" ref={scrollRef}>

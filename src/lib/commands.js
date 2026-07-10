@@ -1,5 +1,5 @@
 import { calculateSubnet } from './subnetCalculator.js';
-import { signInWithEmail, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured } from './cloud.js';
+import { signInWithEmail, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam } from './cloud.js';
 
 const HELP_TEXT = `Available commands:
   subnet <ip/cidr>       e.g. subnet 192.168.1.0/24
@@ -9,8 +9,10 @@ const HELP_TEXT = `Available commands:
   cloud login <email>    sign in for cloud sync (magic link, no password)
   cloud whoami           show who's signed in
   cloud logout           sign out
-  cloud save             save the last subnet result to the cloud
-  cloud history          list your saved cloud sessions
+  cloud team create      create a shared team workspace, get an invite code
+  cloud team join <code> join a teammate's workspace using their invite code (works globally, any device)
+  cloud save             save the last subnet result (shared with your team, if on one)
+  cloud history          list saved sessions (yours + your team's)
   mirai key <api-key>    store your free Gemini API key (encrypted, local only)
   mirai <question>       ask MiRAi, the built-in AI assistant
   clear                  clear the screen
@@ -104,6 +106,19 @@ export async function runCommand(rawInput) {
           case 'logout': {
             await signOut();
             return [{ type: 'output', text: 'Signed out.' }];
+          }
+          case 'team': {
+            const [teamAction, teamArg] = subArgs;
+            if (teamAction === 'create') {
+              const code = await createTeam();
+              return [{ type: 'output', text: `Team created. Invite code: ${code}\nShare this with anyone, anywhere — they run: cloud team join ${code}` }];
+            }
+            if (teamAction === 'join') {
+              if (!teamArg) return [{ type: 'error', text: 'Usage: cloud team join <invite-code>' }];
+              await joinTeam(teamArg);
+              return [{ type: 'output', text: `Joined the team. "cloud save" and "cloud history" now include your team's shared data, from any device.` }];
+            }
+            return [{ type: 'error', text: 'Usage: cloud team <create|join <code>>' }];
           }
           case 'save': {
             if (!lastSubnetResult) return [{ type: 'error', text: 'Nothing to save yet — run a subnet calculation first.' }];

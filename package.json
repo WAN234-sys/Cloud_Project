@@ -32,6 +32,7 @@
   "build": {
     "appId": "com.mnetto.app",
     "productName": "Mnetto",
+    "publish": null,
     "directories": {
       "output": "release/"
     },

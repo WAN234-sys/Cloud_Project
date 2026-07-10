@@ -17,7 +17,7 @@ jobs:
             artifact_path: release/*.exe
             artifact_name: mnetto-windows
           - os: macos-latest
-            artifact_path: release/*.dmg
+            artifact_path: release/*.zip
             artifact_name: mnetto-macos
           - os: ubuntu-latest
             artifact_path: release/*.AppImage

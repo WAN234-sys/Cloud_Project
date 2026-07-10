@@ -29,6 +29,11 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
+      - name: Write .env
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" > .env
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> .env
+
       - name: Compile React Frontend (Vite)
         run: npm run build
 

@@ -89,12 +89,12 @@ ipcMain.handle('tool:run', async (_event, { tool, args }) => {
 });
 
 /**
- * --- MiRAi: the built-in AI assistant, backed by the real Claude API ---
+ * --- MiRAi: the built-in AI assistant, backed by the free-tier Google Gemini API ---
  *
  * The API key is encrypted at rest using Electron's safeStorage (which
  * defers to the OS keychain: Keychain on macOS, DPAPI on Windows, libsecret
  * on Linux). It's stored in the app's userData folder, NOT bundled into the
- * app, and NEVER sent anywhere except directly to api.anthropic.com.
+ * app, and NEVER sent anywhere except directly to generativelanguage.googleapis.com.
  */
 const keyFilePath = () => path.join(app.getPath('userData'), 'mirai.key');
 
@@ -122,34 +122,46 @@ function loadApiKey() {
   return safeStorage.decryptString(encrypted);
 }
 
+const MIRAI_SYSTEM_PROMPT =
+  'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.';
+
+/** Converts our {role: 'user'|'assistant', content: string}[] history into Gemini's {role, parts} format. */
+function toGeminiContents(messages) {
+  return messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+}
+
 ipcMain.handle('mirai:ask', async (_event, { messages, model }) => {
   const apiKey = loadApiKey();
   if (!apiKey) {
     return { ok: false, error: 'No API key set. Run: mirai key <your-api-key>' };
   }
 
+  const modelName = model || 'gemini-2.5-flash';
+
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: model || 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system:
-          'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called NetKit. Prefer short, direct, technically precise answers.',
-        messages,
-      }),
-    });
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-goog-api-key': apiKey,
+        },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: MIRAI_SYSTEM_PROMPT }] },
+          contents: toGeminiContents(messages),
+        }),
+      }
+    );
 
     const data = await res.json();
     if (!res.ok) {
       return { ok: false, error: data?.error?.message || `API error (${res.status})` };
     }
-    const text = data.content?.find((b) => b.type === 'text')?.text || '(no response)';
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '(no response)';
     return { ok: true, text };
   } catch (err) {
     return { ok: false, error: `Request failed: ${err.message}` };

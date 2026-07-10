@@ -11,7 +11,7 @@ const HELP_TEXT = `Available commands:
   cloud logout           sign out
   cloud save             save the last subnet result to the cloud
   cloud history          list your saved cloud sessions
-  mirai key <api-key>    store your Claude API key (encrypted, local only)
+  mirai key <api-key>    store your free Gemini API key (encrypted, local only)
   mirai <question>       ask MiRAi, the built-in AI assistant
   clear                  clear the screen
   help                   show this message`;
@@ -130,7 +130,7 @@ export async function runCommand(rawInput) {
       // --- 1. HANDLE SAVING THE API KEY ---
       if (sub === 'key') {
         const key = subArgs[0];
-        if (!key) return [{ type: 'error', text: 'Usage: mirai key <your-anthropic-api-key>' }];
+        if (!key) return [{ type: 'error', text: 'Usage: mirai key <your-gemini-api-key>' }];
         
         if (window.netkit) {
           // Desktop: Save securely via Electron
@@ -168,7 +168,7 @@ export async function runCommand(rawInput) {
       }
 
       if (!hasKey) {
-        return [{ type: 'error', text: 'No API key set yet. Get one at console.anthropic.com, then run: mirai key <your-key>' }];
+        return [{ type: 'error', text: 'No API key set yet. Get a free key at aistudio.google.com/apikey, then run: mirai key <your-key>' }];
       }
 
       // --- 4. EXECUTE THE AI CHAT ---
@@ -186,33 +186,38 @@ export async function runCommand(rawInput) {
         return [{ type: 'output', text: `MiRAi: ${res.text}` }];
       } else {
         // Web/Mobile-browser mode: request directly via browser fetch.
-        // Anthropic added this header specifically for the "bring your own
-        // key" pattern — each visitor's key stays in their own browser,
-        // never shared with other visitors or committed to the repo.
+        // Gemini's REST API supports CORS from browsers with just an API
+        // key header — no proxy needed, same "bring your own key" pattern:
+        // each visitor's key stays in their own browser only.
         try {
-          const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-              'x-api-key': apiKey,
-              'anthropic-version': '2023-06-01',
-              'content-type': 'application/json',
-              'anthropic-dangerous-direct-browser-access': 'true',
-            },
-            body: JSON.stringify({
-              model: 'claude-haiku-4-5-20251001',
-              max_tokens: 1024,
-              system:
-                'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.',
-              messages: miraiHistory,
-            }),
-          });
+          const response = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+            {
+              method: 'POST',
+              headers: {
+                'x-goog-api-key': apiKey,
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                system_instruction: {
+                  parts: [{
+                    text: 'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.',
+                  }],
+                },
+                contents: miraiHistory.map((m) => ({
+                  role: m.role === 'assistant' ? 'model' : 'user',
+                  parts: [{ text: m.content }],
+                })),
+              }),
+            }
+          );
 
           const data = await response.json();
           if (!response.ok) {
             throw new Error(data?.error?.message || `API error (${response.status})`);
           }
 
-          const aiResponse = data.content?.find((b) => b.type === 'text')?.text || '(no response)';
+          const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '(no response)';
 
           miraiHistory.push({ role: 'assistant', content: aiResponse });
           if (miraiHistory.length > 20) miraiHistory = miraiHistory.slice(-20);

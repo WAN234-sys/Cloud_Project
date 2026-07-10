@@ -2,7 +2,7 @@
 
 A cross-platform network engineering toolkit with a terminal-style UI:
 subnet calculator, port scanning, cloud-synced sessions, and MiRAi — a
-built-in AI assistant backed by the real Claude API. Ships as a desktop
+built-in AI assistant backed by the free Google Gemini API. Ships as a desktop
 app (Electron), Android app (Capacitor), and a web version.
 
 ## Run it (development)
@@ -51,36 +51,38 @@ The `anon` key is safe to ship in your built app — it's meant to be
 public. What actually protects user data is the row-level security
 policy above, which is why that SQL step isn't optional.
 
-## Setting up MiRAi (the AI assistant)
+## Setting up MiRAi (the AI assistant — free)
 
-MiRAi calls the real Anthropic API, but *how* the key is handled is
-different depending on which build you're running — this matters, so
-here's exactly what happens on each:
+MiRAi runs on **Google Gemini's free tier** (`gemini-2.5-flash`) — no
+credit card, no cost. *How* the key is handled differs by build:
 
 - **Desktop (Electron):** the call runs entirely in the main process.
   Your key is encrypted at rest via the OS keychain (Keychain/DPAPI/
   libsecret) and never enters the UI code at all.
 - **Web / Android:** browsers can't run a hidden main process, so the
-  key is stored in that browser's `localStorage` and the request is
-  sent directly from the browser to Anthropic, using a header
-  (`anthropic-dangerous-direct-browser-access`) Anthropic added
-  specifically for this "bring your own key" pattern. Each visitor's
-  key stays in their own browser only — it's never sent to your
-  server, never shared with other visitors, and never committed to
-  the repo.
+  key is stored in that browser's `localStorage` and the request goes
+  directly from the browser to Google — Gemini's REST API supports
+  this natively (CORS-enabled with just the API key header, no proxy
+  needed). Each visitor's key stays in their own browser only — never
+  sent to your server, never shared with other visitors, never
+  committed to the repo.
 
-1. Get an API key at [console.anthropic.com](https://console.anthropic.com)
-2. In the app: `mirai key sk-ant-...`
+1. Get a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+   (starts with `AIza...`, no credit card required)
+2. In the app: `mirai key AIza...`
 3. Then just: `mirai what's the difference between a /24 and /25?`
 
-**Important for a public release either way:** each user needs their
-own API key — you can't safely embed one key inside a distributed
-`.exe` or a public website, since anyone could extract it (trivially,
-on the web version — it'd be sitting in the page's network requests)
-and rack up charges on your account. If you eventually want visitors
-to use MiRAi *without* needing their own key, that means running a
-small backend server you control that holds the key and meters usage
-— a real (small) project on its own, ask me when you're ready.
+**Worth knowing about the free tier, so nothing surprises you:**
+- Free-tier requests may be used by Google to improve their products
+  (stated on their pricing page) — fine for a personal tool, worth
+  knowing if privacy matters for your use case
+- Rate limits exist (roughly 10 requests/minute, a few hundred/day as
+  of mid-2026 — Google's limits shift over time, check the live number
+  for your project in Google AI Studio)
+- Even though it's free, **each user still needs their own key** —
+  you can't embed a single key in a distributed app or public website
+  for the same reason as any API key: it'd be extractable and anyone
+  could exhaust your quota.
 
 ## Deploying the web version (GitHub Pages)
 
@@ -140,7 +142,7 @@ Output lands in `release/`. A few things that matter here:
 electron/
   main.js      # Electron main process — window creation, the ONLY place
                # allowed to spawn external tools (nmap/ping/tshark) or
-               # call the Claude API directly
+               # call the Gemini API directly
   preload.js   # Narrow, explicit bridge between the sandboxed UI and main.js
 src/
   components/
@@ -160,7 +162,7 @@ nmap -sV 192.168.1.1          (requires nmap installed)
 cloud login you@email.com
 cloud save
 cloud history
-mirai key sk-ant-...
+mirai key AIza...
 mirai what's a broadcast address?
 ```
 
@@ -172,7 +174,7 @@ mirai what's a broadcast address?
 | Terminal UI shell | ✅ Working |
 | `ping` / `nmap` | ✅ Desktop only — see table above for why |
 | Cloud storage / team workspaces (Supabase) | ✅ Working everywhere once you complete setup above |
-| MiRAi (Claude API) | ✅ Working everywhere, key handling differs by platform (see above) |
+| MiRAi (Gemini API, free) | ✅ Working everywhere, key handling differs by platform (see above) |
 | Web deployment (GitHub Pages) | ✅ Auto-deploys on push via GitHub Actions |
 | Android build (Capacitor) | ✅ Auto-builds APK via GitHub Actions |
 | Packet capture (Wireshark-style) | 🚧 Not built — needs elevated OS permissions, see prior notes |

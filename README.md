@@ -108,11 +108,24 @@ create policy "Users can insert their own sessions" on sessions
 Setup, either way:
 1. In Project Settings > API, copy your Project URL and `anon` `public` key
 2. Copy `.env.example` to `.env` and fill both values in
-3. Restart `npm run dev`
+3. **In Authentication > Email Templates**, open the **"Magic Link"**
+   template and add `{{ .Token }}` somewhere in the body (e.g. "Your
+   Mnetto sign-in code is: {{ .Token }}"). This makes the email show a
+   plain 6-digit code instead of relying on a clickable link.
+4. Restart `npm run dev`
 
-Usage — this works across the internet, not just the same network:
+Login uses a **6-digit emailed code you type into the app**, not a
+clickable link — this was a deliberate switch, and it matters: a
+clickable magic link has to redirect back to some specific URL, which
+gets messy across four different platforms (web, dev, desktop,
+Android) each running at a different address — that's what caused the
+earlier `localhost:3000` problem. A typed code sidesteps that
+entirely: it works identically everywhere, no redirect URL
+configuration needed, no custom URL scheme, nothing platform-specific.
+
 ```
-cloud login you@email.com          → click the magic link emailed to you
+cloud login you@email.com          → emails a 6-digit code
+cloud verify 123456                 → completes sign-in
 cloud whoami                        → confirm you're signed in
 cloud team create                   → get an invite code, e.g. "K3PQZ1"
 cloud team join K3PQZ1              → (on any other device, anywhere) join that team

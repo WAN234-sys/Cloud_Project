@@ -1,12 +1,13 @@
 import { calculateSubnet } from './subnetCalculator.js';
-import { signInWithEmail, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam } from './cloud.js';
+import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam } from './cloud.js';
 
 const HELP_TEXT = `Available commands:
   subnet <ip/cidr>       e.g. subnet 192.168.1.0/24
   ping <host>            uses the system ping binary
   nmap <args...>         e.g. nmap -sV 192.168.1.1  (requires nmap installed)
   scan <args...>         alias for nmap
-  cloud login <email>    sign in for cloud sync (magic link, no password)
+  cloud login <email>    sign in for cloud sync (emails a 6-digit code)
+  cloud verify <code>    complete sign-in with the code from your email
   cloud whoami           show who's signed in
   cloud logout           sign out
   cloud team create      create a shared team workspace, get an invite code
@@ -22,6 +23,7 @@ const HELP_TEXT = `Available commands:
 // and keeps MiRAi's short conversational memory for this session.
 let lastSubnetResult = null;
 let miraiHistory = [];
+let pendingLoginEmail = null; // set by "cloud login", consumed by "cloud verify"
 
 export async function runCommand(rawInput) {
   const input = rawInput.trim();
@@ -97,7 +99,16 @@ export async function runCommand(rawInput) {
             const email = subArgs[0];
             if (!email) return [{ type: 'error', text: 'Usage: cloud login <email>' }];
             await signInWithEmail(email);
-            return [{ type: 'output', text: `Magic link sent to ${email}. Click it, then run "cloud whoami".` }];
+            pendingLoginEmail = email;
+            return [{ type: 'output', text: `6-digit code sent to ${email}. Run: cloud verify <code>` }];
+          }
+          case 'verify': {
+            const code = subArgs[0];
+            if (!code) return [{ type: 'error', text: 'Usage: cloud verify <code>' }];
+            if (!pendingLoginEmail) return [{ type: 'error', text: 'Run "cloud login <email>" first.' }];
+            await verifyEmailCode(pendingLoginEmail, code);
+            pendingLoginEmail = null;
+            return [{ type: 'output', text: 'Signed in. Run "cloud whoami" to confirm.' }];
           }
           case 'whoami': {
             const user = await getCurrentUser();
@@ -132,7 +143,7 @@ export async function runCommand(rawInput) {
             return [{ type: 'output', text: lines.join('\n') }];
           }
           default:
-            return [{ type: 'error', text: 'Usage: cloud <login|whoami|logout|save|history>' }];
+            return [{ type: 'error', text: 'Usage: cloud <login|verify|whoami|logout|team|save|history>' }];
         }
       } catch (err) {
         return [{ type: 'error', text: err.message }];

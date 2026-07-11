@@ -14,10 +14,20 @@ export function isCloudConfigured() {
   return supabase !== null;
 }
 
-/** Sends a one-time magic link to the given email for passwordless sign-in. */
+/** Sends a 6-digit one-time code to the given email for passwordless sign-in. */
 export async function signInWithEmail(email) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
-  const { error } = await supabase.auth.signInWithOtp({ email });
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true },
+  });
+  if (error) throw error;
+}
+
+/** Completes sign-in using the 6-digit code emailed to the user. */
+export async function verifyEmailCode(email, code) {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
   if (error) throw error;
 }
 

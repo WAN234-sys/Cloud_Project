@@ -1,5 +1,5 @@
 import { calculateSubnet } from './subnetCalculator.js';
-import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam } from './cloud.js';
+import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam, inviteToTeam } from './cloud.js';
 
 const HELP_TEXT = `Available commands:
   subnet <ip/cidr>       e.g. subnet 192.168.1.0/24
@@ -12,6 +12,7 @@ const HELP_TEXT = `Available commands:
   cloud logout           sign out
   cloud team create      create a shared team workspace, get an invite code
   cloud team join <code> join a teammate's workspace using their invite code (works globally, any device)
+  cloud team invite <email>  email someone a real invite to your team
   cloud save             save the last subnet result (shared with your team, if on one)
   cloud history          list saved sessions (yours + your team's)
   mirai key <api-key>    store your free Gemini API key (encrypted, local only)
@@ -129,7 +130,12 @@ export async function runCommand(rawInput) {
               await joinTeam(teamArg);
               return [{ type: 'output', text: `Joined the team. "cloud save" and "cloud history" now include your team's shared data, from any device.` }];
             }
-            return [{ type: 'error', text: 'Usage: cloud team <create|join <code>>' }];
+            if (teamAction === 'invite') {
+              if (!teamArg) return [{ type: 'error', text: 'Usage: cloud team invite <email>' }];
+              await inviteToTeam(teamArg);
+              return [{ type: 'output', text: `Invite email sent to ${teamArg}.` }];
+            }
+            return [{ type: 'error', text: 'Usage: cloud team <create|join <code>|invite <email>>' }];
           }
           case 'save': {
             if (!lastSubnetResult) return [{ type: 'error', text: 'Nothing to save yet — run a subnet calculation first.' }];

@@ -86,6 +86,20 @@ async function getMyTeamId() {
   return data?.team_id ?? null;
 }
 
+/** Sends a real invite email (via the send-team-invite Edge Function) to someone, inviting them to your team. */
+export async function inviteToTeam(toEmail) {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Not signed in. Run: cloud login <email>');
+
+  const { data, error } = await supabase.functions.invoke('send-team-invite', {
+    body: { toEmail },
+  });
+  if (error) throw error;
+  if (data && data.ok === false) throw new Error(data.error || 'Failed to send invite.');
+  return true;
+}
+
 /** Saves one record. If the user has joined a team, it's shared with the team; otherwise it's private to them. */
 export async function saveSession(kind, payload) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');

@@ -138,6 +138,56 @@ public. What actually protects data (private vs. shared-with-team) is
 the row-level security policy above, which is why that SQL step isn't
 optional.
 
+## Setting up team invite emails (join.team@mnetto.com)
+
+`cloud team invite <email>` sends a real email with your team's join
+code. This needed a small server-side piece (a Supabase Edge
+Function) — an app can't safely call Resend directly with an embedded
+API key, for the same reason it can't embed a paid AI key: anyone
+could extract it from the app and send spam as your domain.
+
+**Step 1 — Cloudflare Email Routing: create your address aliases**
+
+In Cloudflare → your domain → **Email → Email Routing**, add a routing
+rule for each address you want, all forwarding to your real inbox:
+
+| Address | Used for |
+|---|---|
+| `auth@mnetto.com` | Sender for Supabase's sign-in code emails |
+| `join.team@mnetto.com` | Sender for team invite emails (this feature) |
+| `dev@mnetto.com` | Your own dev/testing inbox |
+| `support@mnetto.com` | Wherever you want user replies to land |
+
+These are free, unlimited, and just forwarding rules — no separate
+mailbox hosting needed. Add more any time the same way.
+
+**Step 2 — verify the domain in Resend** (if you haven't already from
+the earlier SMTP setup) — Domains → Add Domain → paste the SPF/DKIM
+records it gives you into Cloudflare's DNS panel.
+
+**Step 3 — get a Resend API key** (different from the SMTP
+credentials used earlier — this one is for the Edge Function, not
+Supabase Auth): Resend dashboard → **API Keys** → Create.
+
+**Step 4 — deploy the Edge Function.** This requires the Supabase CLI:
+
+```bash
+npm install -g supabase
+supabase login
+supabase link --project-ref <your-project-ref>   # found in your Supabase project URL
+supabase secrets set RESEND_API_KEY=re_your_key_here
+supabase functions deploy send-team-invite
+```
+
+That's it — `cloud team invite you@example.com` in the app now sends
+a real email from `join.team@mnetto.com` with your team's join code.
+
+**What the function actually protects, worth understanding:** it
+checks the caller is genuinely signed in and genuinely a member of the
+team before sending anything — a client can't pass in an arbitrary
+team ID and invite people to a team it doesn't belong to. That check
+happens server-side in the function itself, not just in the app UI.
+
 ## Setting up MiRAi (the AI assistant — free)
 
 MiRAi runs on **Google Gemini's free tier** (`gemini-2.5-flash`) — no
@@ -264,6 +314,9 @@ subnet 192.168.1.0/24
 ping 1.1.1.1
 nmap -sV 192.168.1.1          (requires nmap installed)
 cloud login you@email.com
+cloud verify 123456
+cloud team create
+cloud team invite teammate@email.com
 cloud save
 cloud history
 mirai key AIza...

@@ -14,21 +14,54 @@ export function isCloudConfigured() {
   return supabase !== null;
 }
 
+/**
+ * Pulls a real, human-readable reason out of whatever got thrown. Some
+ * environments (notably Capacitor's Android WebView) reject fetch calls with
+ * error-like objects that have no enumerable "message" property — naively
+ * doing `err.message` or `JSON.stringify(err)` on those produces "{}", which
+ * hides the actual problem. This checks several possible shapes before
+ * giving up, and identifies unmistakably-network-shaped failures explicitly.
+ */
+function describeError(err) {
+  if (!err) return 'Unknown error (nothing was thrown).';
+  if (typeof err === 'string') return err;
+  if (err.message) return err.message;
+  if (err.error_description) return err.error_description;
+  if (err.msg) return err.msg;
+  if (err.name === 'TypeError') return 'Network request failed — check your internet connection.';
+  if (err.status || err.code) return `Request failed (status/code: ${err.status || err.code})`;
+  try {
+    const withOwnProps = JSON.stringify(err, Object.getOwnPropertyNames(err));
+    if (withOwnProps && withOwnProps !== '{}') return withOwnProps;
+  } catch {
+    // fall through
+  }
+  return 'Request failed with no further details — likely a network issue or blocked request.';
+}
+
 /** Sends a 6-digit one-time code to the given email for passwordless sign-in. */
 export async function signInWithEmail(email) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true },
-  });
-  if (error) throw error;
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    });
+    if (error) throw new Error(describeError(error));
+  } catch (err) {
+    throw new Error(describeError(err));
+  }
 }
 
 /** Completes sign-in using the 6-digit code emailed to the user. */
 export async function verifyEmailCode(email, code) {
   if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
-  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
-  if (error) throw error;
+  try {
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
+    if (error) throw new Error(describeError(error));
+  } catch (err) {
+    throw new Error(describeError(err));
+  }
 }
 
 export async function getCurrentUser() {

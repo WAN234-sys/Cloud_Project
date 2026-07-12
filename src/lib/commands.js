@@ -152,7 +152,7 @@ export async function runCommand(rawInput) {
             return [{ type: 'error', text: 'Usage: cloud <login|verify|whoami|logout|team|save|history>' }];
         }
       } catch (err) {
-        return [{ type: 'error', text: err.message }];
+        return [{ type: 'error', text: err?.message || 'Unknown error — the request failed with no further details.' }];
       }
     }
 

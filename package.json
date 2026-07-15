@@ -1,7 +1,7 @@
 {
   "name": "mnetto",
   "productName": "Mnetto",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A cross-platform network engineering toolkit with a terminal-style UI: subnet calculator, port scanner, and packet capture, with cloud-synced sessions.",
   "author": "WAN234-sys",
   "main": "electron/main.js",
@@ -34,10 +34,10 @@
     "appId": "com.mnetto.app",
     "productName": "Mnetto",
     "publish": {
-    "provider": "github",
-    "owner": "WAN234-sys",
-    "repo": "Mnetto"
-  },
+      "provider": "github",
+      "owner": "WAN234-sys",
+      "repo": "Mnetto"
+    },
     "directories": {
       "output": "release/"
     },

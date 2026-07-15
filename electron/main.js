@@ -1,11 +1,13 @@
-import { app, BrowserWindow, ipcMain, safeStorage } from 'electron';
+import { app, BrowserWindow, ipcMain, safeStorage, dialog } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { autoUpdater } from 'electron-updater';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === 'development';
+let mainWindow = null;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -22,6 +24,8 @@ function createWindow() {
     },
   });
 
+  mainWindow = win;
+
   if (isDev) {
     win.loadURL('http://localhost:5173');
   } else {
@@ -29,8 +33,41 @@ function createWindow() {
   }
 }
 
+/**
+ * --- Auto-update ---
+ *
+ * Checks GitHub Releases (configured via electron-builder's "publish" field
+ * in package.json) for a newer version, downloads it in the background,
+ * and prompts the user to restart once it's ready. Disabled in dev mode —
+ * there's no packaged app to update when running via `npm run dev`.
+ */
+if (!isDev) {
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog
+      .showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Update ready',
+        message: `Mnetto ${info.version} has been downloaded.`,
+        detail: 'Restart now to install it, or it will install automatically next time you quit.',
+        buttons: ['Restart now', 'Later'],
+        defaultId: 0,
+      })
+      .then((result) => {
+        if (result.response === 0) autoUpdater.quitAndInstall();
+      });
+  });
+
+  autoUpdater.on('error', (err) => {
+    // Update failures should never crash or block the app — just log it.
+    console.error('Auto-update error:', err.message);
+  });
+}
+
 app.whenReady().then(() => {
   createWindow();
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

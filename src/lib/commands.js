@@ -1,5 +1,6 @@
 import { calculateSubnet } from './subnetCalculator.js';
 import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam, inviteToTeam } from './cloud.js';
+import { checkForUpdate } from './updateCheck.js';
 
 const HELP_TEXT = `Available commands:
   subnet <ip/cidr>       e.g. subnet 192.168.1.0/24
@@ -17,6 +18,7 @@ const HELP_TEXT = `Available commands:
   cloud history          list saved sessions (yours + your team's)
   mirai key <api-key>    store your free Gemini API key (encrypted, local only)
   mirai <question>       ask MiRAi, the built-in AI assistant
+  update                  check if a newer version of Mnetto is available
   clear                  clear the screen
   help                   show this message`;
 
@@ -259,6 +261,23 @@ export async function runCommand(rawInput) {
           return [{ type: 'error', text: `MiRAi error: ${err.message}` }];
         }
       }
+    }
+
+    case 'update': {
+      const result = await checkForUpdate();
+      if (result.error) {
+        return [{ type: 'error', text: `Couldn't check for updates: ${result.error}` }];
+      }
+      if (result.updateAvailable) {
+        const lines = [
+          `Update available: ${result.currentVersion} -> ${result.latestVersion}`,
+          window.netkit
+            ? 'The desktop app downloads updates automatically in the background — restart Mnetto to install it.'
+            : `Download the latest version: ${result.url}`,
+        ];
+        return [{ type: 'output', text: lines.join('\n') }];
+      }
+      return [{ type: 'output', text: `You're up to date (v${result.currentVersion}).` }];
     }
 
     default:

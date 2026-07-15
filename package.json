@@ -17,6 +17,7 @@
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
     "@supabase/supabase-js": "^2.110.1",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -32,7 +33,11 @@
   "build": {
     "appId": "com.mnetto.app",
     "productName": "Mnetto",
-    "publish": null,
+    "publish": {
+    "provider": "github",
+    "owner": "WAN234-sys",
+    "repo": "Mnetto"
+  },
     "directories": {
       "output": "release/"
     },

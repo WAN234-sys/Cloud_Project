@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { runCommand } from '../lib/commands.js';
+import { checkForUpdate } from '../lib/updateCheck.js';
 
-const BANNER = `Mnetto v0.1.1 — subnet calc / nmap / ping / MiRAi
+const BANNER = `Mnetto v${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '?'} — subnet calc / nmap / ping / MiRAi
 Type "help" to see available commands.`;
 
 export default function Terminal() {
@@ -19,6 +20,19 @@ export default function Terminal() {
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    // Quiet check on launch — only says anything if there's actually an
+    // update, so this never adds noise for people already on the latest version.
+    checkForUpdate().then((result) => {
+      if (result.updateAvailable) {
+        const text = window.netkit
+          ? `A new version is available: ${result.currentVersion} -> ${result.latestVersion}. It's downloading in the background — you'll be prompted to restart once it's ready.`
+          : `A new version is available: ${result.currentVersion} -> ${result.latestVersion}. Download: ${result.url}`;
+        setLines((l) => [...l, { type: 'output', text }]);
+      }
+    });
   }, []);
 
   async function submit(e) {

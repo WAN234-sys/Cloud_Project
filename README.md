@@ -264,7 +264,46 @@ What works on the deployed website vs. what doesn't, and why:
 The terminal shows a clear "desktop app only" message for these
 instead of failing silently.
 
-## Building the actual .exe
+## Auto-update
+
+**Desktop:** real, automatic updates via `electron-updater`. On launch, the
+app checks GitHub Releases, downloads any newer version in the background,
+and prompts you to restart once it's ready — no manual reinstall needed for
+anyone already running the app.
+
+**Android:** Android won't allow a sideloaded app (one not from the Play
+Store) to silently install its own updates — that's an OS-level security
+restriction, not something fixable in code. Instead, the app checks GitHub
+Releases on launch and shows a "new version available" message with a
+download link if one exists. You still tap through the install yourself,
+same as installing any APK.
+
+**Web:** nothing needed — every page load already serves whatever's
+currently deployed.
+
+You can also check manually any time with the `update` command in the app.
+
+### Cutting a new release
+
+Pushing to `main` (as you've been doing this whole time) only produces
+**test builds** — it does NOT publish a public release or trigger
+auto-updates for existing users. That's deliberate, so every small fix
+doesn't spam a "new version!" notice. To actually ship an update:
+
+```bash
+# 1. Bump the version number
+npm version patch   # 0.1.1 -> 0.1.2 (or "minor"/"major" for bigger changes)
+
+# 2. Push the commit AND the tag it just created
+git push origin main --follow-tags
+```
+
+That tag push (`v0.1.2`) is what triggers the real, published build —
+watch it in the **Actions** tab. Once it finishes, it creates an actual
+GitHub Release with the installers attached, and existing desktop installs
+will detect it and start downloading within their next launch.
+
+
 
 ```bash
 npm run build      # bundles the React UI
@@ -321,6 +360,7 @@ cloud save
 cloud history
 mirai key AIza...
 mirai what's a broadcast address?
+update
 ```
 
 ## Status
@@ -337,3 +377,5 @@ mirai what's a broadcast address?
 | Packet capture (Wireshark-style) | 🚧 Not built — needs elevated OS permissions, see prior notes |
 | Network simulator (Packet Tracer-style) | ⏸️ Deliberately deferred — large scope, v2+ |
 | Code signing for distribution | 🚧 Needed before public release, not automated here |
+| Desktop auto-update | ✅ Working via electron-updater + GitHub Releases |
+| Android update check | ✅ Notifies + links to latest APK (can't self-install, Android restriction) |

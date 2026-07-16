@@ -204,3 +204,59 @@ ipcMain.handle('mirai:ask', async (_event, { messages, model }) => {
     return { ok: false, error: `Request failed: ${err.message}` };
   }
 });
+
+/**
+ * --- Folder backup (jobsheets/assignments -> Supabase Storage) ---
+ *
+ * Desktop-only, since it needs real filesystem access to pick and read an
+ * arbitrary folder — something Android's WebView and a website can't do.
+ * This side only picks the folder and reads the raw file bytes; the actual
+ * upload to Supabase happens in the renderer (src/lib/cloud.js), since
+ * that's where the signed-in Supabase session already lives.
+ */
+const MAX_UPLOAD_FILE_BYTES = 45 * 1024 * 1024; // stay under Supabase's default 50MB/file limit
+
+ipcMain.handle('folder:pick', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: 'Select the folder to back up',
+  });
+  if (result.canceled || result.filePaths.length === 0) return { ok: false, canceled: true };
+  return { ok: true, folderPath: result.filePaths[0] };
+});
+
+function walkFiles(dir, baseDir) {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let files = [];
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files = files.concat(walkFiles(fullPath, baseDir));
+    } else if (entry.isFile()) {
+      files.push({ fullPath, relativePath: path.relative(baseDir, fullPath).replace(/\\/g, '/') });
+    }
+  }
+  return files;
+}
+
+ipcMain.handle('folder:read', async (_event, folderPath) => {
+  try {
+    const found = walkFiles(folderPath, folderPath);
+    const files = [];
+    const skipped = [];
+
+    for (const { fullPath, relativePath } of found) {
+      const stat = fs.statSync(fullPath);
+      if (stat.size > MAX_UPLOAD_FILE_BYTES) {
+        skipped.push({ relativePath, reason: `too large (${(stat.size / 1024 / 1024).toFixed(1)}MB, limit 45MB)` });
+        continue;
+      }
+      const bytes = fs.readFileSync(fullPath);
+      files.push({ relativePath, bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), size: stat.size });
+    }
+
+    return { ok: true, files, skipped };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});

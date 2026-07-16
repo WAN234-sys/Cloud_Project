@@ -1,5 +1,5 @@
 import { calculateSubnet } from './subnetCalculator.js';
-import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam, inviteToTeam } from './cloud.js';
+import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam, inviteToTeam, uploadFiles, listBackedUpFiles } from './cloud.js';
 import { checkForUpdate } from './updateCheck.js';
 
 const HELP_TEXT = `Available commands:
@@ -19,6 +19,8 @@ const HELP_TEXT = `Available commands:
   mirai key <api-key>    store your free Gemini API key (encrypted, local only)
   mirai <question>       ask MiRAi, the built-in AI assistant
   update                  check if a newer version of Mnetto is available
+  files upload            pick a folder and back it up to the cloud (desktop only)
+  files list              list files you've backed up (yours + your team's)
   clear                  clear the screen
   help                   show this message`;
 
@@ -278,6 +280,58 @@ export async function runCommand(rawInput) {
         return [{ type: 'output', text: lines.join('\n') }];
       }
       return [{ type: 'output', text: `You're up to date (v${result.currentVersion}).` }];
+    }
+
+    case 'files': {
+      if (!isCloudConfigured()) {
+        return [{ type: 'error', text: 'Cloud storage isn\'t configured yet. See README "Setting up cloud storage".' }];
+      }
+      const [sub] = rest;
+
+      if (sub === 'upload') {
+        if (!window.netkit) {
+          return [{ type: 'error', text: 'Folder backup requires the desktop app — browsers and Android can\'t pick an arbitrary folder from disk.' }];
+        }
+        try {
+          const user = await getCurrentUser();
+          if (!user) return [{ type: 'error', text: 'Not signed in. Run: cloud login <email>' }];
+
+          const picked = await window.netkit.pickFolder();
+          if (!picked.ok) return [{ type: 'output', text: 'Cancelled.' }];
+
+          const read = await window.netkit.readFolder(picked.folderPath);
+          if (!read.ok) return [{ type: 'error', text: `Couldn't read that folder: ${read.error}` }];
+          if (read.files.length === 0) {
+            return [{ type: 'output', text: 'That folder has no files to upload.' }];
+          }
+
+          const skippedNote = read.skipped.length
+            ? `\n${read.skipped.length} file(s) skipped: ${read.skipped.map((s) => `${s.relativePath} (${s.reason})`).join(', ')}`
+            : '';
+
+          const result = await uploadFiles(read.files);
+          const lines = [
+            `Uploaded ${result.uploaded.length}/${read.files.length} file(s).`,
+            ...(result.failed.length ? [`Failed: ${result.failed.map((f) => `${f.relativePath} (${f.error})`).join(', ')}`] : []),
+          ];
+          return [{ type: result.failed.length ? 'error' : 'output', text: lines.join('\n') + skippedNote }];
+        } catch (err) {
+          return [{ type: 'error', text: err.message }];
+        }
+      }
+
+      if (sub === 'list') {
+        try {
+          const files = await listBackedUpFiles();
+          if (files.length === 0) return [{ type: 'output', text: 'No files backed up yet. Run: files upload' }];
+          const lines = files.map((f) => (f.id ? `${f.name}` : `${f.name}/ (folder)`));
+          return [{ type: 'output', text: lines.join('\n') + '\n\n(Note: only shows the top level — files inside subfolders were uploaded too, just not listed individually here.)' }];
+        } catch (err) {
+          return [{ type: 'error', text: err.message }];
+        }
+      }
+
+      return [{ type: 'error', text: 'Usage: files <upload|list>' }];
     }
 
     default:

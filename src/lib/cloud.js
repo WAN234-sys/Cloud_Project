@@ -163,3 +163,51 @@ export async function listSessions(kind) {
   if (error) throw error;
   return data; // RLS on the "sessions" table restricts this to own + team rows — see README setup
 }
+
+/**
+ * Uploads a batch of files (from a picked folder) to Supabase Storage.
+ * Stored under the user's own path, or the team's shared path if they've
+ * joined one — same private-vs-shared pattern as saveSession/listSessions.
+ */
+export async function uploadFiles(files, onProgress) {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not signed in. Run: cloud login <email>');
+
+  const teamId = await getMyTeamId();
+  const basePath = teamId ? `team/${teamId}` : `user/${user.id}`;
+
+  const results = { uploaded: [], failed: [] };
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const storagePath = `${basePath}/${file.relativePath}`;
+    const { error } = await supabase.storage
+      .from('backups')
+      .upload(storagePath, file.bytes, { upsert: true });
+
+    if (error) {
+      results.failed.push({ relativePath: file.relativePath, error: error.message });
+    } else {
+      results.uploaded.push(file.relativePath);
+    }
+    onProgress?.(i + 1, files.length);
+  }
+  return results;
+}
+
+/** Lists files already backed up — the signed-in user's own, or their team's if on one. */
+export async function listBackedUpFiles() {
+  if (!supabase) throw new Error('Cloud storage is not configured yet — see README.');
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not signed in. Run: cloud login <email>');
+
+  const teamId = await getMyTeamId();
+  const basePath = teamId ? `team/${teamId}` : `user/${user.id}`;
+
+  const { data, error } = await supabase.storage.from('backups').list(basePath, {
+    limit: 100,
+    sortBy: { column: 'name', order: 'asc' },
+  });
+  if (error) throw error;
+  return data;
+}

@@ -26,7 +26,14 @@ export async function checkForUpdate() {
 
   try {
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`);
+
+    if (res.status === 404) {
+      // Not a real error — this just means no version has been published
+      // as a GitHub Release yet (see README "Cutting a new release").
+      return { updateAvailable: false, currentVersion, noReleasesYet: true };
+    }
     if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+
     const data = await res.json();
     const latestVersion = data.tag_name;
 

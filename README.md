@@ -138,7 +138,70 @@ public. What actually protects data (private vs. shared-with-team) is
 the row-level security policy above, which is why that SQL step isn't
 optional.
 
-## Setting up team invite emails (join.team@mnetto.com)
+## Setting up file backup (jobsheets/assignments -> cloud)
+
+`files upload` lets you pick a folder on your desktop and back every file
+in it up to Supabase Storage — private to you, or shared with your team if
+you've joined one, same pattern as `cloud save`.
+
+**Desktop only.** Picking an arbitrary folder needs real filesystem access
+— browsers and Android's WebView are sandboxed away from that on purpose,
+same reason `nmap`/`ping` are desktop-only.
+
+**One-time setup — create the storage bucket:**
+
+1. Supabase dashboard → **Storage** → **New bucket**
+2. Name it exactly `backups` (the code expects this name)
+3. Leave it **private** (not public) — access is controlled by the RLS
+   policies below, not by making files publicly guessable
+4. In the SQL editor, run:
+
+```sql
+create policy "Users can upload to their own or team folder"
+on storage.objects for insert
+with check (
+  bucket_id = 'backups'
+  and (
+    (storage.foldername(name))[1] = 'user' and (storage.foldername(name))[2] = auth.uid()::text
+    or
+    (storage.foldername(name))[1] = 'team' and (storage.foldername(name))[2] in (
+      select team_id::text from team_members where user_id = auth.uid()
+    )
+  )
+);
+
+create policy "Users can read their own or team files"
+on storage.objects for select
+using (
+  bucket_id = 'backups'
+  and (
+    (storage.foldername(name))[1] = 'user' and (storage.foldername(name))[2] = auth.uid()::text
+    or
+    (storage.foldername(name))[1] = 'team' and (storage.foldername(name))[2] in (
+      select team_id::text from team_members where user_id = auth.uid()
+    )
+  )
+);
+```
+
+Usage:
+```
+files upload    → pick a folder, back up everything in it
+files list       → see what's already backed up
+```
+
+**Limits worth knowing:**
+- Files over 45MB are skipped (Supabase's default per-file limit is 50MB;
+  this leaves headroom) — the upload result tells you exactly which files
+  got skipped and why
+- Supabase's free tier caps total storage around 1GB — fine for jobsheets/
+  assignments (mostly PDFs/docs), worth watching if you start storing
+  video or large datasets
+- `files list` only shows the top level of what's backed up — nested
+  subfolders are uploaded correctly (their structure is preserved), just
+  not individually listed in this simple view
+
+
 
 `cloud team invite <email>` sends a real email with your team's join
 code. This needed a small server-side piece (a Supabase Edge

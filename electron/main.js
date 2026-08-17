@@ -8,19 +8,22 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 
 // ============================================================
-// NEW: import tracker module and Supabase client
+// NEW: Tracker Module & Supabase Client
 // ============================================================
 import { 
     startTracker, stopTracker, getStatus, 
     collectAllData, getCachedData, clearCachedData,
     reportToSupabase 
 } from './tracker.js';
-import { supabase } from '../src/lib/cloud.js';  // your Supabase client
+import { supabase } from '../src/lib/cloud.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = process.env.NODE_ENV === 'development';
 let mainWindow = null;
 
+// ============================================================
+// CREATE WINDOW
+// ============================================================
 function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
@@ -45,7 +48,9 @@ function createWindow() {
   }
 }
 
-// --- Auto-update (unchanged) ---
+// ============================================================
+// AUTO-UPDATE (Production Only)
+// ============================================================
 if (!isDev) {
   autoUpdater.on('update-downloaded', (info) => {
     dialog
@@ -67,6 +72,9 @@ if (!isDev) {
   });
 }
 
+// ============================================================
+// APP LIFECYCLE
+// ============================================================
 app.whenReady().then(() => {
   createWindow();
   if (!isDev) {
@@ -82,7 +90,7 @@ app.on('window-all-closed', () => {
 });
 
 // ============================================================
-// ORIGINAL IPC HANDLERS (tool:run, MiRAi, folder backup)
+// WHITELISTED TOOL BINARIES
 // ============================================================
 const TOOL_BINARIES = {
   nmap: 'nmap',
@@ -90,6 +98,9 @@ const TOOL_BINARIES = {
   ping: process.platform === 'win32' ? 'ping' : 'ping',
 };
 
+// ============================================================
+// IPC: RUN WHITELISTED TOOL
+// ============================================================
 ipcMain.handle('tool:run', async (_event, { tool, args }) => {
   const bin = TOOL_BINARIES[tool];
   if (!bin) {
@@ -126,7 +137,9 @@ ipcMain.handle('tool:run', async (_event, { tool, args }) => {
   });
 });
 
-// --- MiRAi: AI assistant ---
+// ============================================================
+// IPC: MIRAI – ENCRYPTED API KEY STORAGE
+// ============================================================
 const keyFilePath = () => path.join(app.getPath('userData'), 'mirai.key');
 
 ipcMain.handle('mirai:setKey', async (_event, apiKey) => {
@@ -153,6 +166,9 @@ function loadApiKey() {
   return safeStorage.decryptString(encrypted);
 }
 
+// ============================================================
+// IPC: MIRAI – AI ASSISTANT (GEMINI)
+// ============================================================
 const MIRAI_SYSTEM_PROMPT =
   'You are MiRAi, a terse, knowledgeable network-engineering assistant embedded in a terminal app called Mnetto. Prefer short, direct, technically precise answers.';
 
@@ -198,7 +214,9 @@ ipcMain.handle('mirai:ask', async (_event, { messages, model }) => {
   }
 });
 
-// --- Folder backup ---
+// ============================================================
+// IPC: FOLDER BACKUP (PICK & READ)
+// ============================================================
 const MAX_UPLOAD_FILE_BYTES = 45 * 1024 * 1024;
 
 ipcMain.handle('folder:pick', async () => {
@@ -247,27 +265,49 @@ ipcMain.handle('folder:read', async (_event, folderPath) => {
 });
 
 // ============================================================
-// NEW: TRACKER IPC HANDLERS
+// 🧠 NEW: TRACKER IPC HANDLERS
 // ============================================================
+
+/**
+ * Start the tracker – runs every 60 seconds, collects data,
+ * sends to Supabase if online, otherwise caches locally.
+ */
 ipcMain.handle('tracker:start', async () => {
   startTracker(supabase);
   return { ok: true };
 });
 
+/**
+ * Stop the tracker – clears the interval and stops data collection.
+ */
 ipcMain.handle('tracker:stop', async () => {
   stopTracker();
   return { ok: true };
 });
 
+/**
+ * Get current tracker status:
+ * - running (boolean)
+ * - cached (number of items in offline cache)
+ * - trackerId (unique ID for this installation)
+ */
 ipcMain.handle('tracker:status', async () => {
   return getStatus();
 });
 
+/**
+ * Manually trigger data collection and return the result
+ * (does NOT send to Supabase – just returns the data).
+ */
 ipcMain.handle('tracker:collect', async () => {
   const data = await collectAllData();
   return { ok: true, data };
 });
 
+/**
+ * Flush cached data to Supabase – uploads all offline items,
+ * then clears the cache.
+ */
 ipcMain.handle('tracker:flushCache', async () => {
   const cached = getCachedData();
   let uploaded = 0;
